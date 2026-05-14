@@ -2,8 +2,6 @@
 
 Device: Samsung Galaxy Express GT-I8730 / GT-I8730T, Android codename `expressltexx` / `expresslte`.
 
-Current goal: produce the smallest useful mainline Linux boot image that runs on the device far enough to prove lk2nd loads it and UART logging works. Display, storage, sensors, Wi-Fi, modem, audio, and charging are later milestones.
-
 ## Workspace
 
 Mainline work happens in `linux/` on branch `samsung-expressltexx`.
@@ -30,6 +28,8 @@ lk2nd is already flashed to the device boot partitions.
 UART access is through the USB connector. The MUIC detects about 619K ohms between GND and ID, then routes UART RX/TX to D+/D-. In this mode normal USB/fastboot over the same connector may not be available, so do not assume `fastboot boot` is usable while UART is connected.
 
 For iterative testing, prefer a workflow that builds a boot image, flashes it to a known test partition or slot, and captures UART logs. Avoid overwriting the known-good lk2nd setup unless the user explicitly asks.
+
+The local helper `./build-test-userdata.sh` builds `linux/` for ARM, creates a lk2nd/extlinux userdata image, and does not flash anything. It uses an MBR layout because lk2nd 22.0 treats a GPT userdata image as only the protective MBR partition and then fails to find an extlinux filesystem. Its extlinux `/vmlinuz` is an appended `zImage+DTB` because an early test reached Linux low-level debug but showed `r2=0`, so the separate extlinux `fdt` was not reaching the ARM kernel entry path. The intended test command is `fastboot flash userdata out/expressltexx/expressltexx-userdata.sparse.img` if sparse flashing works, otherwise `fastboot flash userdata out/expressltexx/expressltexx-userdata.img`, then reboot with the UART cable attached.
 
 First boot success criterion is simple: lk2nd starts the kernel and the kernel prints something useful on UART, even if it panics later because no full board support or rootfs exists.
 
@@ -99,6 +99,8 @@ Variant downstream defconfig is `msm8930_express_eur_lte_defconfig`.
 Prefer small, testable mainline changes. For early bring-up, prioritize UART, memory, timer/interrupts, and a panic/log path before adding peripherals.
 
 When extracting hardware data from downstream, cite the exact source file and line range in notes or commit messages. Avoid copying downstream code structure into mainline; translate board-file facts into devicetree and existing mainline bindings.
+
+Keep `RESEARCH.md` up to date while working. Whenever adding or changing a non-obvious register address, register offset, bit value, derived clock, boot-image layout value, GPIO number, regulator fact, or similar magic value, add a concise breadcrumb there with exact source paths and line ranges, the interpretation, and the current mainline/U-Boot use site. Do this in the same change that introduces or relies on the value.
 
 Do not assume `samsung-expressatt` and `samsung-expressltexx` are electrically identical. Use expressatt only to understand what a nearby Samsung Qualcomm board looks like in mainline.
 

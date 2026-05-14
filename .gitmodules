@@ -1,0 +1,18 @@
+[submodule "android_device_samsung_expressltexx"]
+	path = android_device_samsung_expressltexx
+	url = https://github.com/MSM8930-Samsung/android_device_samsung_expressltexx
+[submodule "android_device_samsung_msm8930-common"]
+	path = android_device_samsung_msm8930-common
+	url = https://github.com/MSM8930-Samsung/android_device_samsung_msm8930-common
+[submodule "android_device_samsung_qcom-common"]
+	path = android_device_samsung_qcom-common
+	url = https://github.com/LineageOS/android_device_samsung_qcom-common
+[submodule "android_kernel_samsung_msm8930-common"]
+	path = android_kernel_samsung_msm8930-common
+	url = https://github.com/MSM8930-Samsung/android_kernel_samsung_msm8930-common
+[submodule "linux"]
+	path = linux
+	url = https://github.com/samcday/linux.git
+[submodule "u-boot"]
+	path = u-boot
+	url = https://github.com/samcday/u-boot.git
