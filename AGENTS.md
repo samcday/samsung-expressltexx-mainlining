@@ -23,13 +23,17 @@ Mainline currently has `arch/arm/boot/dts/qcom/qcom-msm8960.dtsi` and `arch/arm/
 
 ## Boot And UART
 
-lk2nd is already flashed to the device boot partitions.
+lk2nd is already flashed to the device boot partitions. The current U-Boot bring-up target is chain-loading, not replacing earlier firmware: vendor `aboot` starts lk2nd, and lk2nd starts U-Boot from an Android-style boot image. In this path, assume the vendor boot chain and lk2nd have already initialized the clocks and peripherals needed for the current experiments unless logs prove otherwise.
+
+It would be useful eventually to test whether U-Boot can replace `aboot` directly, but that is not the active bring-up mode. Even on this older device, secure boot may reject a non-vendor `aboot` image. Do not flash U-Boot over `aboot` or other bootloader partitions without explicit user approval and a clear recovery path.
 
 UART access is through the USB connector. The MUIC detects about 619K ohms between GND and ID, then routes UART RX/TX to D+/D-. In this mode normal USB/fastboot over the same connector may not be available, so do not assume `fastboot boot` is usable while UART is connected.
 
 For iterative testing, prefer a workflow that builds a boot image, flashes it to a known test partition or slot, and captures UART logs. Avoid overwriting the known-good lk2nd setup unless the user explicitly asks.
 
-The local helper `./build-test-userdata.sh` builds `linux/` for ARM, creates a lk2nd/extlinux userdata image, and does not flash anything. It uses an MBR layout because lk2nd 22.0 treats a GPT userdata image as only the protective MBR partition and then fails to find an extlinux filesystem. Its extlinux `/vmlinuz` is an appended `zImage+DTB` because an early test reached Linux low-level debug but showed `r2=0`, so the separate extlinux `fdt` was not reaching the ARM kernel entry path. The intended test command is `fastboot flash userdata out/expressltexx/expressltexx-userdata.sparse.img` if sparse flashing works, otherwise `fastboot flash userdata out/expressltexx/expressltexx-userdata.img`, then reboot with the UART cable attached.
+The local fallback helper `./build-lk2nd-userdata.sh` builds `linux/` for ARM, creates a lk2nd/extlinux userdata image, and does not flash anything. It uses an MBR layout because lk2nd 22.0 treats a GPT userdata image as only the protective MBR partition and then fails to find an extlinux filesystem. Its extlinux `/vmlinuz` is an appended `zImage+DTB` because an early test reached Linux low-level debug but showed `r2=0`, so the separate extlinux `fdt` was not reaching the ARM kernel entry path. The fallback test command is `fastboot flash userdata out/expressltexx/expressltexx-userdata.sparse.img` if sparse flashing works, otherwise `fastboot flash userdata out/expressltexx/expressltexx-userdata.img`, then reboot with the UART cable attached.
+
+Once USB gadget support is working, prefer `./build-lk2nd-bootable.sh` and `fastboot boot out/expressltexx/expressltexx-boot.img` for kernel/initrd round trips. `./build-dev-initrd.sh` owns the tiny BusyBox/configfs CDC-ACM initrd used by both local image builders.
 
 First boot success criterion is simple: lk2nd starts the kernel and the kernel prints something useful on UART, even if it panics later because no full board support or rootfs exists.
 
