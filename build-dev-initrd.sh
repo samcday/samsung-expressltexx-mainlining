@@ -30,7 +30,8 @@ Environment overrides:
   OUT_DIR                Output/work directory (default: ./out/expressltexx)
   OUTPUT                 Output cpio.gz (default: $OUT_DIR/dev-initramfs.cpio.gz)
   MINIMAL_BUSYBOX_SOURCE Compressed cpio containing usr/bin/busybox and musl
-                         (default: /tmp/postmarketOS-export/initramfs)
+                         (default: /tmp/postmarketOS-export/initramfs,
+                         falling back to prior local initramfs artifacts)
   HOSTCC                 Host C compiler for gen_init_cpio (default: cc)
   KEEP_WORK=1            Keep the staging directory (default: 1)
 EOF
@@ -58,6 +59,16 @@ HOSTCC=${HOSTCC:-cc}
 KEEP_WORK=${KEEP_WORK:-1}
 
 [[ -f "$LINUX_DIR/usr/gen_init_cpio.c" ]] || die "missing gen_init_cpio source: $LINUX_DIR/usr/gen_init_cpio.c"
+
+if [[ ! -f "$MINIMAL_BUSYBOX_SOURCE" && "$MINIMAL_BUSYBOX_SOURCE" == /tmp/postmarketOS-export/initramfs ]]; then
+	for candidate in "$OUT_DIR/minimal-initramfs.cpio.gz" "$OUT_DIR/dev-initramfs.cpio.gz"; do
+		if [[ -f "$candidate" ]]; then
+			MINIMAL_BUSYBOX_SOURCE=$candidate
+			break
+		fi
+	done
+fi
+
 [[ -f "$MINIMAL_BUSYBOX_SOURCE" ]] || die "minimal initramfs source not found: $MINIMAL_BUSYBOX_SOURCE"
 
 need "$HOSTCC"
@@ -77,12 +88,31 @@ mkdir -p "$EXTRACT_DIR" "$(dirname "$OUTPUT")"
 gzip -dc "$MINIMAL_BUSYBOX_SOURCE" | \
 	(cd "$EXTRACT_DIR" && cpio -id --quiet \
 		"usr/bin/busybox" \
-		"usr/lib/ld-musl-armhf.so.1")
+		"usr/lib/ld-musl-armhf.so.1" \
+		"bin/busybox" \
+		"lib/ld-musl-armhf.so.1")
 
-[[ -f "$EXTRACT_DIR/usr/bin/busybox" ]] || \
-	die "minimal initramfs source lacks usr/bin/busybox: $MINIMAL_BUSYBOX_SOURCE"
-[[ -f "$EXTRACT_DIR/usr/lib/ld-musl-armhf.so.1" ]] || \
-	die "minimal initramfs source lacks usr/lib/ld-musl-armhf.so.1: $MINIMAL_BUSYBOX_SOURCE"
+BUSYBOX_PATH=
+MUSL_PATH=
+
+for candidate in "$EXTRACT_DIR/usr/bin/busybox" "$EXTRACT_DIR/bin/busybox"; do
+	if [[ -f "$candidate" ]]; then
+		BUSYBOX_PATH=$candidate
+		break
+	fi
+done
+
+for candidate in "$EXTRACT_DIR/usr/lib/ld-musl-armhf.so.1" "$EXTRACT_DIR/lib/ld-musl-armhf.so.1"; do
+	if [[ -f "$candidate" ]]; then
+		MUSL_PATH=$candidate
+		break
+	fi
+done
+
+[[ -n "$BUSYBOX_PATH" ]] || \
+	die "minimal initramfs source lacks busybox: $MINIMAL_BUSYBOX_SOURCE"
+[[ -n "$MUSL_PATH" ]] || \
+	die "minimal initramfs source lacks ld-musl-armhf.so.1: $MINIMAL_BUSYBOX_SOURCE"
 
 cat > "$INIT_SCRIPT" <<'EOF'
 #!/bin/sh
@@ -258,8 +288,8 @@ dir /lib 0755 0 0
 dir /usr 0755 0 0
 dir /usr/lib 0755 0 0
 file /init $INIT_SCRIPT 0755 0 0
-file /bin/busybox $EXTRACT_DIR/usr/bin/busybox 0755 0 0
-file /lib/ld-musl-armhf.so.1 $EXTRACT_DIR/usr/lib/ld-musl-armhf.so.1 0755 0 0
+file /bin/busybox $BUSYBOX_PATH 0755 0 0
+file /lib/ld-musl-armhf.so.1 $MUSL_PATH 0755 0 0
 slink /lib/libc.musl-armv7.so.1 ld-musl-armhf.so.1 0777 0 0
 slink /usr/lib/ld-musl-armhf.so.1 ../../lib/ld-musl-armhf.so.1 0777 0 0
 slink /usr/lib/libc.musl-armv7.so.1 ld-musl-armhf.so.1 0777 0 0

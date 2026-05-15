@@ -43,7 +43,7 @@ Environment overrides:
                      Compressed cpio containing usr/bin/busybox and musl
                      (default: /tmp/postmarketOS-export/initramfs)
   CMDLINE            Android boot.img/kernel cmdline
-  DEBUG_BRINGUP=1    Enable early UART debug and disable SMP (default: 1)
+  DEBUG_BRINGUP=1    Force bring-up cmdline and disable SMP (default: 1)
   CROSS_COMPILE      ARM cross prefix, e.g. arm-none-eabi-
   LLVM               LLVM suffix/prefix for kernel builds, if not using CROSS_COMPILE
   HOSTCC             Host C compiler for dev initrd helper (default: cc)
@@ -188,7 +188,11 @@ if [[ "$SKIP_BUILD" != 1 ]]; then
 		-e DEVTMPFS \
 		-e DEVTMPFS_MOUNT \
 		-e FB_SIMPLE \
+		-e MMC_BLOCK \
+		-e MMC_ARMMMCI \
+		-e MMC_QCOM_DML \
 		-e PINCTRL_MSM8960 \
+		-e QCOM_BAM_DMA \
 		-e QCOM_GSBI \
 		-e SERIAL_MSM \
 		-e SERIAL_MSM_CONSOLE \
@@ -200,11 +204,6 @@ if [[ "$SKIP_BUILD" != 1 ]]; then
 			--set-str CMDLINE "$CMDLINE" \
 			-e CMDLINE_FORCE \
 			-e DEBUG_KERNEL \
-			-e DEBUG_LL \
-			-e DEBUG_QCOM_UARTDM \
-			-e EARLY_PRINTK \
-			--set-val DEBUG_UART_PHYS 0x16440000 \
-			--set-val DEBUG_UART_VIRT 0xf0040000 \
 			-d SMP
 	fi
 

@@ -85,9 +85,9 @@ Sources:
 
 Current use:
 
-- `linux/arch/arm/boot/dts/qcom/qcom-msm8930.dtsi:219-249` adds disabled `usb1: usb@12500000` and nested ULPI `usb_hs1_phy` nodes.
-- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:41-57` adds temporary fixed USB PHY 1.8 V and 3.075 V supply nodes.
-- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:87-102` enables `usb1` in peripheral mode, attaches the temporary PHY supplies, and supplies the Express PHY init sequence.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930.dtsi:246-276` adds disabled `usb1: usb@12500000` and nested ULPI `usb_hs1_phy` nodes.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:41-56` adds temporary fixed USB PHY 1.8 V and 3.075 V supply nodes.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:155-168` enables `usb1` in peripheral mode, attaches the temporary PHY supplies, and supplies the Express PHY init sequence.
 
 Notes:
 
@@ -117,14 +117,58 @@ Sources:
 
 Current use:
 
-- `build-dev-initrd.sh:136-217` creates `/dev/ttyGS0` if needed, configures the CDC-ACM gadget, binds the first UDC, and starts the USB serial shell.
-- `build-dev-initrd.sh:280-290` includes BusyBox `ln` and `getty` applet links required by the gadget setup.
-- `build-lk2nd-userdata.sh:212-227` and `build-lk2nd-bootable.sh:181-193` enable the kernel config options needed by local bring-up images, including `CONFIG_USB_CONFIGFS_ACM`.
+- `build-dev-initrd.sh:179-247` creates `/dev/ttyGS0` if needed, configures the CDC-ACM gadget, binds the first UDC, and starts the USB serial shell.
+- `build-dev-initrd.sh:306-320` includes BusyBox `ln` and `getty` applet links required by the gadget setup.
+- `build-lk2nd-userdata.sh:221-231` and `build-lk2nd-bootable.sh:190-199` enable the kernel config options needed by local bring-up images, including `CONFIG_USB_CONFIGFS_ACM`.
 
 Notes:
 
 - This is intentionally test-initramfs policy, not board DT. It should not be carried into an upstream DTS submission.
 - If the UART resistor cable is attached, the connector may be routed to UART instead of USB data; CDC-ACM enumeration should be tested with the normal USB path when possible.
+
+## MSM8930 SDCC1 / eMMC
+
+Values currently used:
+
+- SDCC1 is the internal non-removable eMMC controller. Android refers to the boot device as `msm_sdcc.1`.
+- SDCC1 core base is `0x12400000`; the DML block starts at `0x12400800`; the BAM block starts at `0x12402000`.
+- The mainline PL18x node maps `0x12400000..0x12401fff`, matching the existing MSM8960 mainline shape so the Qualcomm DML registers at offset `0x800` are included.
+- SDCC1 host IRQ is `GIC_SPI 104`; SDCC1 BAM IRQ is `GIC_SPI 98`.
+- SDCC1 uses the existing MSM8960 GCC-compatible IDs `SDC1_CLK`, `SDC1_H_CLK`, and `SDC1_RESET` while MSM8930-specific GCC support is not split out.
+- The downstream Express storage table supports SDCC1 clock rates `400000`, `24000000`, `48000000`, and `96000000`; the DT caps `max-frequency` at `96000000` for the first pass.
+- Downstream Express enables `CONFIG_MMC_MSM_SDC1_8_BIT_SUPPORT`, so DT sets `bus-width = <8>`.
+- Temporary fixed eMMC supplies are `vmmc = 2950000` uV and `vqmmc = 1800000` uV, matching downstream SDCC1 `sdc_vdd` and `sdc_vdd_io` regulator voltage requests.
+- SDCC1 pad drive matches downstream active/sleep values: active CLK 16 mA, CMD/DATA 10 mA; sleep CLK/CMD/DATA 2 mA. CLK is no-pull; CMD/DATA are pull-up.
+
+Sources:
+
+- `android_device_samsung_expressltexx/rootdir/fstab.qcom:6-16` uses `/dev/block/platform/msm_sdcc.1/by-name/...` for internal eMMC partitions.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/devices-8960.c:1107-1115` defines SDCC1 base, DML base, BAM base, and nearby SDCC base addresses.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/devices-8960.c:1123-1155` wires SDCC1 core memory, core IRQ, DML memory, BAM memory, and BAM IRQ resources.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/include/mach/irqs-8930.h:141-147` defines `SDC1_BAM_IRQ = GIC_SPI_START + 98` and `SDC1_IRQ_0 = GIC_SPI_START + 104`.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-storage.c:42-52` defines SDCC1 `sdc_vdd` as fixed 2.95 V and always-on.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-storage.c:73-82` defines SDCC1 `sdc_vdd_io` as fixed 1.8 V and always-on.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-storage.c:114-137` defines SDCC1 active/sleep pad drive and pull settings.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-storage.c:223-250` defines SDCC1 clock rates, non-removable eMMC, 8-bit conditional support, bus voting, and HS200/DDR capabilities.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-storage.c:294-309` registers SDCC1 for Express/MSM8930.
+- `android_kernel_samsung_msm8930-common/arch/arm/configs/samsung_express_defconfig:539` enables downstream 8-bit SDCC1 support.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8960.dtsi:446-472` is the nearest mainline PL18x/DML/BAM DT shape reused for SDCC1 after checking downstream base and IRQ facts.
+- `linux/include/dt-bindings/clock/qcom,gcc-msm8960.h:118-128` defines the SDC1 clock IDs currently reused by the MSM8930 GCC-compatible path.
+- `linux/include/dt-bindings/reset/qcom,gcc-msm8960.h:67-71` defines the SDCC reset IDs currently reused by the MSM8930 GCC-compatible path.
+- `linux/drivers/mmc/host/mmci_qcom_dml.c:48-51` uses DML at host base offset `0x800`, explaining why the PL18x `reg` window includes both the core and DML ranges.
+
+Current use:
+
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930.dtsi:188-216` adds disabled SDCC1 and SDCC1 BAM nodes.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:59-75` adds temporary fixed eMMC VDD and VDD_IO supplies.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:94-101` enables SDCC1 with pinctrl and supply phandles.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:113-153` adds SDCC1 active and sleep pin states.
+- `build-lk2nd-bootable.sh:191-195` and `build-lk2nd-userdata.sh:222-227` force the local test kernel to keep MMCI, Qualcomm DML, and BAM DMA support enabled.
+
+Notes:
+
+- This is a first eMMC probe pass. External SDCC3, card detect/write protect, true PMIC/RPM regulators, SDCC reset handling, and HS200/DDR tuning are deliberately left for later.
+- The temporary fixed supplies should be replaced once the PM8917/PM8038 regulator topology is modeled.
 
 ## lk2nd Continuous Splash / Simple Framebuffer
 
@@ -146,7 +190,7 @@ Sources:
 Current use:
 
 - `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:9-39` adds `display0`, a `/chosen/framebuffer@88a00000` simple-framebuffer node, and a matching `reserved-memory` no-map region.
-- `build-lk2nd-userdata.sh:212-227` and `build-lk2nd-bootable.sh:181-193` enable `CONFIG_FB_SIMPLE` for local bring-up images so the simple-framebuffer node creates an fbdev device.
+- `build-lk2nd-userdata.sh:221-231` and `build-lk2nd-bootable.sh:190-199` enable `CONFIG_FB_SIMPLE` for local bring-up images so the simple-framebuffer node creates an fbdev device.
 
 Notes:
 
@@ -161,6 +205,7 @@ Values currently used:
 - Direct fastboot images embed the dev initramfs in the kernel by default and set `CONFIG_INITRAMFS_FORCE=y`. A fastboot boot with external gzip initrd at `0x82400000` reached Linux with the right DTB and initrd size, but Linux rejected the external rootfs image as `invalid magic at start of compressed archive` before falling back to `unknown-block(0,0)`.
 - The fastboot-bootable kernel payload is appended `zImage+DTB`, matching the userdata/extlinux fallback that was needed when the separate extlinux `fdt` path reached Linux with `r2=0`.
 - The userdata fallback still creates an MBR extlinux image and also emits an Android `boot.img` side artifact. Its side-artifact ramdisk offset remains `0x01500000`; prefer `build-lk2nd-bootable.sh` for direct `fastboot boot` testing.
+- The local helpers keep `earlycon` and `ttyMSM0` console output but no longer force `DEBUG_LL`, `DEBUG_QCOM_UARTDM`, or `EARLY_PRINTK`; that low-level mapping produced `BUG: mapping for 0x16440000 at 0xf0040000 out of vmalloc space` once normal earlycon was sufficient.
 
 Sources:
 
@@ -172,15 +217,17 @@ Sources:
 - `boot.log:1-4` captured the direct fastboot handoff with `ramdisk @ 0x82400000 (891680)` and `tags/device tree @ 0x80200100`.
 - `boot.log:128-132` captured Linux detecting the external initrd, trying to unpack it, rejecting it as not initramfs, and freeing 872 KiB of initrd memory.
 - `boot.log:186-190` captured `rdinit=/init` failing with `-2` and the resulting `unknown-block(0,0)` root mount failure.
+- `boot.log:11-16` captured normal earlycon working followed by the low-level debug mapping warning that the local helper cleanup removes.
 - Earlier hardware logs showed separate extlinux `fdt` did not reach ARM Linux (`r2=0`), while appended `zImage+DTB` did.
 
 Current use:
 
-- `build-lk2nd-bootable.sh:82-94` defines the built-in initramfs default and Android boot-image layout defaults for direct `fastboot boot` testing.
-- `build-lk2nd-bootable.sh:224-246` creates appended `zImage+DTB` and passes it plus the dev initrd to `mkbootimg`.
-- `build-lk2nd-bootable.sh:264` prints the intended `fastboot boot out/expressltexx/expressltexx-boot.img` command.
+- `build-lk2nd-bootable.sh:85-94` defines the built-in initramfs default and Android boot-image layout defaults for direct `fastboot boot` testing.
+- `build-lk2nd-bootable.sh:202-207` and `build-lk2nd-userdata.sh:234-239` now keep only the forced bring-up cmdline, `DEBUG_KERNEL`, and `SMP=n` behavior from `DEBUG_BRINGUP=1`.
+- `build-lk2nd-bootable.sh:226-246` creates appended `zImage+DTB` and passes it plus the dev initrd to `mkbootimg`.
+- `build-lk2nd-bootable.sh:265` prints the intended `fastboot boot out/expressltexx/expressltexx-boot.img` command.
 - `build-lk2nd-userdata.sh:103-107` keeps the fallback userdata side-artifact boot-image layout values.
-- `build-lk2nd-userdata.sh:260-334` creates appended `zImage+DTB`, the extlinux image payload, and an Android `boot.img` side artifact.
+- `build-lk2nd-userdata.sh:259-333` creates appended `zImage+DTB`, the extlinux image payload, and an Android `boot.img` side artifact.
 
 Notes:
 
