@@ -22,7 +22,7 @@ Sources:
 
 Current use:
 
-- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:1-7` now includes `qcom-msm8930.dtsi` and advertises `compatible = "samsung,expressltexx", "qcom,msm8930"`.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:1-10` now includes `qcom-msm8930.dtsi` and advertises `compatible = "samsung,expressltexx", "qcom,msm8930"`.
 - `u-boot/dts/upstream/src/arm/qcom/qcom-msm8960-samsung-expressltexx.dts:1-8` still includes `qcom-msm8960.dtsi` and advertises `qcom,msm8960`; treat this as an early bring-up shortcut that needs auditing against MSM8930-specific facts before adding more peripherals.
 
 Notes:
@@ -84,7 +84,7 @@ Current use:
 - `linux/drivers/mfd/qcom_rpm.c:341-365` adds the MSM8930 RPM resource table and template; `qcom_rpm.c:465` matches `qcom,rpm-msm8930`.
 - `linux/drivers/regulator/qcom_rpm-regulator.c:918-950` adds minimal `qcom,rpm-pm8038-regulators` and `qcom,rpm-pm8917-regulators` support.
 - `linux/arch/arm/boot/dts/qcom/qcom-msm8930.dtsi:87-96` adds the MSM8930 RPM node.
-- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:59-94` declares the PM8917 S4/L3/L4/L5 regulators; `qcom-msm8930-samsung-expressltexx.dts:96-102` wires SDCC1 to L5/S4; `qcom-msm8930-samsung-expressltexx.dts:161-163` wires the USB PHY to L4/L3.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:93-128` declares the PM8917 S4/L3/L4/L5 regulators; `qcom-msm8930-samsung-expressltexx.dts:130-136` wires SDCC1 to L5/S4; `qcom-msm8930-samsung-expressltexx.dts:202-204` wires the USB PHY to L4/L3.
 - `build-lk2nd-bootable.sh:101` and `build-lk2nd-userdata.sh:113-114` no longer pass `regulator_ignore_unused` by default.
 
 Notes:
@@ -120,17 +120,19 @@ Sources:
 - `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-regulator-pm8917.c:706-710` programs PM8917 L3 to `3075000` uV and L4 to `1800000` uV.
 - `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-regulator-pm8038.c:43-50` maps `HSUSB_3p3` to L3 and `HSUSB_1p8` to L4 for `msm_otg`.
 - `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-regulator-pm8038.c:527-531` programs PM8038 L3 to `3075000` uV and L4 to `1800000` uV.
+- `linux/drivers/phy/qualcomm/phy-qcom-usb-hs.c:131-132` first asks the `v3p3` regulator for exactly `3300000` uV, then `linux/include/linux/regulator/consumer.h:717-724` falls back to the wider `3050000..3300000` uV range if that target request fails.
 
 Current use:
 
 - `linux/arch/arm/boot/dts/qcom/qcom-msm8930.dtsi:257-287` adds disabled `usb1: usb@12500000` and nested ULPI `usb_hs1_phy` nodes.
-- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:72-84` defines the PM8917 L3/L4 USB PHY supply regulators.
-- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:156-171` enables `usb1` in peripheral mode, attaches the PM8917 PHY supplies, and supplies the Express PHY init sequence.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:106-118` defines the PM8917 L3/L4 USB PHY supply regulators.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:197-212` enables `usb1` in peripheral mode, attaches the PM8917 PHY supplies, and supplies the Express PHY init sequence.
 
 Notes:
 
 - This is a first UDC bring-up pass. It does not yet model the TSU6721 MUIC, USB extcon/VBUS handling, or host mode.
 - The previous fixed USB PHY supplies were a temporary bring-up workaround for a `phy poweron failed --> -22` error seen when the gadget bound and the PHY driver tried to set voltage on dummy regulators.
+- A boot-time `l3: voltage operation not allowed` warning can come from the PHY driver's first exact-`3300000` uV request. Do not widen the Express PM8917 L3 DT constraint just to suppress that warning unless hardware evidence supports 3.3 V operation; downstream fixes L3 at `3075000` uV and the generic PHY helper has a wider fallback range.
 
 ## Minimal Initramfs CDC-ACM Gadget
 
@@ -202,9 +204,9 @@ Sources:
 Current use:
 
 - `linux/arch/arm/boot/dts/qcom/qcom-msm8930.dtsi:199-224` adds disabled SDCC1 and SDCC1 BAM nodes.
-- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:63-92` defines the PM8917 S4/L5 eMMC supply regulators.
-- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:96-102` enables SDCC1 with pinctrl and PM8917 supply phandles.
-- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:113-153` adds SDCC1 active and sleep pin states.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:97-126` defines the PM8917 S4/L5 eMMC supply regulators.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:130-136` enables SDCC1 with pinctrl and PM8917 supply phandles.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:156-194` adds SDCC1 active and sleep pin states.
 - `build-lk2nd-bootable.sh:191-195` and `build-lk2nd-userdata.sh:222-227` force the local test kernel to keep MMCI, Qualcomm DML, and BAM DMA support enabled.
 
 Notes:
@@ -217,7 +219,7 @@ Notes:
 Values currently known:
 
 - Current mainline `qcom-msm8930.dtsi` is still a minimal bring-up file: clocks, TLMM, SDCC1/eMMC, GSBI5 UART, USB HS1, and CPU/timer plumbing only. Most peripherals below are downstream hardware facts, not yet modeled in Linux DT.
-- Physical keys are active-low GPIO keys: volume up GPIO 50, volume down GPIO 81, home GPIO 35. Home is wake-capable downstream; all use 5 ms debounce.
+- Physical keys are active-low GPIO keys: volume up GPIO 50, volume down GPIO 81, home GPIO 35. Downstream reports volume as `KEY_VOLUMEUP`/`KEY_VOLUMEDOWN` and home as `KEY_HOMEPAGE`; home is wake-capable downstream and all use 5 ms debounce. Downstream gpiomux uses GPIO function, 8 mA drive, and pull-up while active.
 - Touchscreen is Atmel maXTouch `MXT224S` on GSBI3 I2C bus ID 3, I2C address `0x4a`, IRQ GPIO 11, logical range X `0..479`, Y `0..799`, firmware/config tag `I8730_AT_1226`. Newer Express board revs use regulators `8917_lvs6` for 1.8 V and `8917_l31` set to 3.3 V; older revs use GPIO 79 (`GPIO_TSP_D_EN`) and GPIO 80 (`GPIO_TSP_A_EN`).
 - Touchkeys are Cypress touchkeys on a bitbanged I2C bus ID 16, I2C address `0x20`, IRQ GPIO 65, keycodes `KEY_MENU` and `KEY_BACK`. Newer revs use bitbang SDA/SCL GPIO 24/25 plus `8917_lvs5` for 1.8 V, `8917_l30` set to 2.8 V, and LED regulator `8917_l33` set to 3.3 V; older revs use SDA/SCL GPIO 71/72, LDO enable GPIO 99, and LED GPIO 51.
 - Haptics use the downstream Immersion/Vibetonz `tspdrv` platform device with `HAPTIC_PWM`, PWM GPIO 70, enable GPIO 63, `is_pmic_vib_en = 0`, `is_pmic_haptic_pwr_en = 0`, and `is_no_haptic_pwr = 1`. This is not the PMIC vibrator path.
@@ -255,6 +257,7 @@ Sources:
 - `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-express.c:786-924` defines TAOS optical sensor bus, address, thresholds, IRQ, and prox LED power path.
 - `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-express.c:928-983` defines PN547 I2C bus, address, IRQ, VEN, firmware, and optional clock request GPIOs.
 - `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-express.c:2673-2715` defines active-low volume/home GPIO key data and home wakeup behavior.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-express-gpiomux.c:752-786` defines the key pins as GPIO function, 8 mA drive, and active-state pull-up.
 - `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-express.c:3116-3132` defines the Vibetonz `tspdrv` haptic PWM platform data.
 - `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-input-mxt.c:448-550` defines Express maXTouch board-revision-dependent power sequencing.
 - `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-input-mxt.c:552-595` defines maXTouch platform data, address `0x4a`, IRQ GPIO 11, dimensions, and firmware/config tag.
@@ -296,13 +299,14 @@ Sources:
 
 Current use:
 
-- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:4-171` currently models board identity, simple-framebuffer, minimal PM8917 RPM USB/eMMC supplies, GSBI5 UART, SDCC1/eMMC, and USB peripheral mode only.
-- No mainline Expressltexx DT nodes currently model GPIO keys, touchscreen, touchkeys, haptics, MUIC, NFC, sensors, MHL, display panel, cameras, audio, WLAN/Bluetooth/FM, charger/BMS, battery profile, or SDCC3.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:45-73` models the TLMM-backed home, volume-up, and volume-down keys; `qcom-msm8930-samsung-expressltexx.dts:140-145` adds their GPIO pin state.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:8-212` currently models board identity, simple-framebuffer, TLMM GPIO keys, minimal PM8917 RPM USB/eMMC supplies, GSBI5 UART, SDCC1/eMMC, and USB peripheral mode only.
+- No mainline Expressltexx DT nodes currently model touchscreen, touchkeys, haptics, MUIC, NFC, sensors, MHL, display panel, cameras, audio, WLAN/Bluetooth/FM, charger/BMS, battery profile, PMIC power key, or SDCC3.
 
 Notes:
 
 - Do not copy `qcom-msm8960-samsung-expressatt.dts` electrical details blindly. It is useful for upstream style and nearby peripheral categories, but Expressltexx differs in PMIC/regulators, home-key GPIO, NFC enable GPIO, sensor set, MUIC, haptics, display panel, and cameras.
-- Good low-risk future DTS candidates after PMIC/regulator plumbing settles are GPIO keys, maXTouch, YAS532/MPU sensors, TAOS light/prox, and SDCC3. MUIC/PN547/touchkeys/haptics may need driver or binding checks before they become clean upstream nodes.
+- Good low-risk future DTS candidates after PMIC/regulator plumbing settles are maXTouch, YAS532/MPU sensors, TAOS light/prox, and SDCC3. MUIC/PN547/touchkeys/haptics may need driver or binding checks before they become clean upstream nodes.
 
 ## lk2nd Continuous Splash / Simple Framebuffer
 
@@ -323,7 +327,7 @@ Sources:
 
 Current use:
 
-- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:9-39` adds `display0`, a `/chosen/framebuffer@88a00000` simple-framebuffer node, and a matching `reserved-memory` no-map region.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:13-43` adds `display0`, a `/chosen/framebuffer@88a00000` simple-framebuffer node, and a matching `reserved-memory` no-map region.
 - `build-lk2nd-userdata.sh:221-231` and `build-lk2nd-bootable.sh:190-199` enable `CONFIG_FB_SIMPLE` for local bring-up images so the simple-framebuffer node creates an fbdev device.
 
 Notes:

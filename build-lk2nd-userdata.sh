@@ -110,8 +110,8 @@ TAGS_OFFSET=${TAGS_OFFSET:-0x00000100}
 BOOT_BASE=${BOOT_BASE:-0x80200000}
 BOOT_PAGESIZE=${BOOT_PAGESIZE:-2048}
 
-DEFAULT_CMDLINE='earlycon=msm_serial_dm,0x16440000 console=tty0 console=ttyMSM0,115200n8 ignore_loglevel loglevel=8 clk_ignore_unused pd_ignore_unused regulator_ignore_unused root=UUID=@ROOT_UUID@ rw rootwait panic=0'
-DEV_CMDLINE='earlycon=msm_serial_dm,0x16440000 console=tty0 console=ttyMSM0,115200n8 ignore_loglevel loglevel=8 clk_ignore_unused pd_ignore_unused regulator_ignore_unused rdinit=/init panic=0'
+DEFAULT_CMDLINE='earlycon=msm_serial_dm,0x16440000 console=tty0 console=ttyMSM0,115200n8 ignore_loglevel loglevel=8 clk_ignore_unused pd_ignore_unused root=UUID=@ROOT_UUID@ rw rootwait panic=0'
+DEV_CMDLINE='earlycon=msm_serial_dm,0x16440000 console=tty0 console=ttyMSM0,115200n8 ignore_loglevel loglevel=8 clk_ignore_unused pd_ignore_unused rdinit=/init panic=0'
 
 [[ -d "$LINUX_DIR" ]] || die "kernel tree not found: $LINUX_DIR"
 [[ -f "$LINUX_DIR/Makefile" ]] || die "kernel Makefile not found in: $LINUX_DIR"
