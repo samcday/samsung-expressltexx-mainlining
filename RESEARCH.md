@@ -29,6 +29,31 @@ Notes:
 
 - Existing U-Boot timer/UART values below were individually source-backed and have reached a UART prompt, but future U-Boot work should not inherit additional MSM8960 nodes or Express ATT facts without a matching breadcrumb.
 
+## MSM8960 GCC Board Clock Compatibility
+
+Values currently used:
+
+- MSM8930 bring-up currently uses the mainline `qcom,gcc-msm8960` driver and binding IDs while MSM8930-specific GCC support is not split out.
+- The fixed clock nodes under `/clocks` intentionally use legacy underscore node names `cxo_board`, `pxo_board`, and `sleep_clk`. This is not style drift: `qcom_cc_register_board_clk()` looks up exact `/clocks/<path>` child names before deciding whether to register fallback clocks.
+- `cxo_board` is `19200000` Hz and `pxo_board` is `27000000` Hz, matching the fallback rates registered by `gcc-msm8960`.
+- If these node names are changed to hyphenated names, `gcc-msm8960` attempts to register duplicate `cxo_board`/`pxo_board` clocks and fails before GSBI/USB suppliers can probe.
+
+Sources:
+
+- `linux/drivers/clk/qcom/common.c:147-184` documents and implements the legacy `/clocks/<path>` lookup before fallback board-clock registration.
+- `linux/drivers/clk/qcom/gcc-msm8960.c:3716-3729` registers fallback `cxo_board` and `pxo_board` clocks at `19200000` and `27000000` Hz.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8960.dtsi:15-37` uses the same underscore node names for `cxo_board`, `pxo_board`, and `sleep_clk`.
+- `boot.log:224-227` captured the failure mode: `gcc-msm8960` failed to register duplicate `cxo_board`, which left `900000.clock-controller` unavailable.
+- `boot.log:398-401` captured the downstream effect: GSBI and USB deferred forever because their `900000.clock-controller` supplier was not ready.
+
+Current use:
+
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930.dtsi:15-35` defines `cxo_board`, `pxo_board`, and `sleep_clk` with the exact legacy node names expected by the current GCC compatibility path.
+
+Notes:
+
+- This is a temporary compatibility detail of the current MSM8930 bring-up. Revisit it if a dedicated MSM8930 GCC driver/binding is added.
+
 ## MSM8930 HSUSB / UDC
 
 Values currently used:
@@ -38,6 +63,7 @@ Values currently used:
 - USB1 HS interrupt is `USB1_HS_IRQ = GIC_SPI_START + 100`, represented in DT as `interrupts = <GIC_SPI 100 IRQ_TYPE_LEVEL_HIGH>`.
 - Mainline USB clocks/resets currently use the existing MSM8960 GCC IDs: `USB_HS1_XCVR_CLK = 128`, `USB_HS1_H_CLK = 126`, and `USB_HS1_RESET = 64`.
 - HSUSB PHY uses the 28 nm integrated ULPI PHY path. Mainline represents this with `qcom,usb-hs-phy-msm8960`, `phy_type = "ulpi"`, and a 60 MHz `USB_HS1_XCVR_CLK` assignment.
+- Temporary fixed USB PHY supplies are modeled as `v1p8 = 1800000` uV and `v3p3 = 3075000` uV. Downstream maps HSUSB 1.8 V to PM8917/PM8038 L4 and HSUSB 3.3 V to L3; both downstream regulator files program L4 to 1.8 V and L3 to 3.075 V.
 - Express downstream PHY init sequence is `0x44 0x80, 0x5f 0x81, 0x3c 0x82, 0x13 0x83`, with downstream comments describing VBUS/disconnect thresholds, DC voltage level, preemphasis/rise/fall, and source impedance adjustment.
 - Current Linux test mode is peripheral-only: `dr_mode = "peripheral"`.
 
@@ -52,16 +78,114 @@ Sources:
 - `linux/arch/arm/boot/dts/qcom/qcom-msm8960.dtsi:505-533` is the nearest mainline ChipIdea/ULPI DT shape reused for the MSM8930 bring-up node after checking downstream base/IRQ facts.
 - `linux/include/dt-bindings/clock/qcom,gcc-msm8960.h:130-139` defines `USB_HS1_H_CLK` and `USB_HS1_XCVR_CLK` IDs currently reused by the MSM8930 GCC-compatible path.
 - `linux/include/dt-bindings/reset/qcom,gcc-msm8960.h:69-76` defines `USB_HS1_RESET` ID currently reused by the MSM8930 GCC-compatible path.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-regulator-pm8917.c:46-53` maps `HSUSB_3p3` to L3 and `HSUSB_1p8` to L4 for `msm_otg`.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-regulator-pm8917.c:706-710` programs PM8917 L3 to `3075000` uV and L4 to `1800000` uV.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-regulator-pm8038.c:43-50` maps `HSUSB_3p3` to L3 and `HSUSB_1p8` to L4 for `msm_otg`.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-regulator-pm8038.c:527-531` programs PM8038 L3 to `3075000` uV and L4 to `1800000` uV.
 
 Current use:
 
 - `linux/arch/arm/boot/dts/qcom/qcom-msm8930.dtsi:219-249` adds disabled `usb1: usb@12500000` and nested ULPI `usb_hs1_phy` nodes.
-- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:45-57` enables `usb1` in peripheral mode and supplies the Express PHY init sequence.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:41-57` adds temporary fixed USB PHY 1.8 V and 3.075 V supply nodes.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:87-102` enables `usb1` in peripheral mode, attaches the temporary PHY supplies, and supplies the Express PHY init sequence.
 
 Notes:
 
-- This is a first UDC bring-up pass. It does not yet model the TSU6721 MUIC, USB extcon/VBUS handling, host mode, or USB PHY regulators.
-- Hardware validation is still pending. The minimal BusyBox initramfs should make `/sys/class/udc`, `/sys/kernel/config`, and `dmesg` inspection possible without postmarketOS initrd policy interfering.
+- This is a first UDC bring-up pass. It does not yet model the TSU6721 MUIC, USB extcon/VBUS handling, host mode, or the real PMIC/RPM regulator topology.
+- The fixed USB PHY supplies are a temporary bring-up workaround for a `phy poweron failed --> -22` error seen when the gadget bound and the PHY driver tried to set voltage on dummy regulators.
+
+## Minimal Initramfs CDC-ACM Gadget
+
+Values currently used:
+
+- The local test initramfs creates a configfs gadget at `/sys/kernel/config/usb_gadget/g1` with one `functions/acm.usb0` CDC-ACM function and binds it to the first UDC found under `/sys/class/udc`.
+- Test USB IDs are `idVendor = 0x1d6b` and `idProduct = 0x0104`, identifying Linux Foundation's Multifunction Composite Gadget rather than pretending to be a Samsung production USB ID.
+- USB descriptor versions are `bcdUSB = 0x0200` and `bcdDevice = 0x0100` for a simple USB 2.0 test gadget.
+- The configuration is bus-powered with `bmAttributes = 0x80` and `MaxPower = 100`.
+- The initramfs starts `getty -L -n -l /bin/sh 115200 ttyGS0 vt100` after `/dev/ttyGS0` appears, while keeping the UART shell on `/dev/ttyMSM0` for recovery.
+
+Sources:
+
+- `linux/Documentation/usb/gadget_configfs.rst:60-81` documents creating a gadget directory and writing `idVendor`/`idProduct` plus strings.
+- `linux/Documentation/usb/gadget_configfs.rst:103-131` documents creating configs, config strings, and `MaxPower`.
+- `linux/Documentation/usb/gadget_configfs.rst:133-168` documents creating functions and linking them into configs.
+- `linux/Documentation/usb/gadget_configfs.rst:213-223` documents binding the gadget by writing a UDC name from `/sys/class/udc` into `UDC`.
+- `linux/Documentation/usb/gadget-testing.rst:33-48` documents the ACM configfs function name `acm` and resulting serial function.
+- `linux/Documentation/usb/gadget_serial.rst:131-145` documents the resulting `/dev/ttyGS0` node and running getty on it.
+- `linux/drivers/usb/gadget/Kconfig:249-257` defines `CONFIG_USB_CONFIGFS_ACM` and selects `USB_U_SERIAL` plus `USB_F_ACM`.
+- `/usr/share/hwdata/usb.ids:20954-20962` maps `1d6b:0104` to Linux Foundation Multifunction Composite Gadget.
+
+Current use:
+
+- `build-dev-initrd.sh:136-217` creates `/dev/ttyGS0` if needed, configures the CDC-ACM gadget, binds the first UDC, and starts the USB serial shell.
+- `build-dev-initrd.sh:280-290` includes BusyBox `ln` and `getty` applet links required by the gadget setup.
+- `build-lk2nd-userdata.sh:212-227` and `build-lk2nd-bootable.sh:181-193` enable the kernel config options needed by local bring-up images, including `CONFIG_USB_CONFIGFS_ACM`.
+
+Notes:
+
+- This is intentionally test-initramfs policy, not board DT. It should not be carried into an upstream DTS submission.
+- If the UART resistor cable is attached, the connector may be routed to UART instead of USB data; CDC-ACM enumeration should be tested with the normal USB path when possible.
+
+## lk2nd Continuous Splash / Simple Framebuffer
+
+Values currently used:
+
+- Runtime lk2nd log from the device reports MDP DMA_P continuous splash at base `0x88a00000`, stride `1440`, size `480x800`, output origin `(0,0)`, config `0x100213f`, and extracted format `0x0`.
+- lk2nd's DMA_P continuous-splash reader extracts format bits `26:25`; format `0x0` maps to RGB888, with `bpp = 24` and logical stride `stride_bytes / 3`.
+- Mainline simple-framebuffer uses byte stride, so the DT keeps `stride = <1440>` and maps format `0x0`/RGB888 to `format = "r8g8b8"`.
+- Framebuffer memory size is derived as `1440 * 800 = 1152000 = 0x119400` bytes.
+- The framebuffer lies inside the current conservative RAM bank `0x80000000..0x9fffffff`, so DT also reserves `0x88a00000..0x88b19400` with `no-map`.
+
+Sources:
+
+- `lk2nd/lk2nd/display/cont-splash/dma.c:12-31` reads `MDP_DMA_P_BUF_ADDR`, `MDP_DMA_P_CONFIG`, `MDP_DMA_P_SIZE`, `MDP_DMA_P_BUF_Y_STRIDE`, `MDP_DMA_P_OUT_XY`, extracts format bits, and prints the continuous-splash log line.
+- `lk2nd/lk2nd/display/cont-splash/dma.c:33-55` maps DMA_P format `0x0` to `FB_FORMAT_RGB888`, `bpp = 24`, and `stride = stride / 3`.
+- `lk2nd/include/dev/fbcon.h:90-93` defines lk2nd `FB_FORMAT_RGB565`, `FB_FORMAT_RGB666`, `FB_FORMAT_RGB666_LOOSE`, and `FB_FORMAT_RGB888` constants.
+- `linux/Documentation/devicetree/bindings/display/simple-framebuffer.yaml:90-119` documents simple-framebuffer byte stride and allowed formats including `r8g8b8`.
+
+Current use:
+
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:9-39` adds `display0`, a `/chosen/framebuffer@88a00000` simple-framebuffer node, and a matching `reserved-memory` no-map region.
+- `build-lk2nd-userdata.sh:212-227` and `build-lk2nd-bootable.sh:181-193` enable `CONFIG_FB_SIMPLE` for local bring-up images so the simple-framebuffer node creates an fbdev device.
+
+Notes:
+
+- `stdout-path` stays on `serial0` for now; the framebuffer is added for visual status and `/dev/fb0`, not as the primary console during early UART bring-up.
+
+## lk2nd Linux boot.img Helpers
+
+Values currently used:
+
+- Direct fastboot round trips use an Android boot image at `out/expressltexx/expressltexx-boot.img` with base `0x80200000`, kernel offset `0x00008000`, ramdisk offset `0x02200000`, tags offset `0x00000100`, and page size `2048`.
+- The direct boot ramdisk offset intentionally differs from downstream Android's `0x02000000`: `0x80200000 + 0x02200000 = 0x82400000`, matching lk2nd's extlinux-tested initrd placement after the direct `0x82200000` image booted Linux but reached `unknown-block(0,0)` without an initramfs.
+- Direct fastboot images embed the dev initramfs in the kernel by default and set `CONFIG_INITRAMFS_FORCE=y`. A fastboot boot with external gzip initrd at `0x82400000` reached Linux with the right DTB and initrd size, but Linux rejected the external rootfs image as `invalid magic at start of compressed archive` before falling back to `unknown-block(0,0)`.
+- The fastboot-bootable kernel payload is appended `zImage+DTB`, matching the userdata/extlinux fallback that was needed when the separate extlinux `fdt` path reached Linux with `r2=0`.
+- The userdata fallback still creates an MBR extlinux image and also emits an Android `boot.img` side artifact. Its side-artifact ramdisk offset remains `0x01500000`; prefer `build-lk2nd-bootable.sh` for direct `fastboot boot` testing.
+
+Sources:
+
+- `android_device_samsung_expressltexx/BoardConfig.mk:34-39` gives downstream boot cmdline, base, image name, ramdisk offset, and page size.
+- `lk2nd/app/aboot/aboot.c:3378-3409` shows the fastboot boot path using mkbootimg header kernel/ramdisk/tags addresses and validating their DDR ranges.
+- `lk2nd/app/aboot/aboot.c:3438-3457` shows the fastboot boot path falling back to an appended DTB if no separate DTB was copied.
+- `lk2nd/lk2nd/boot/extlinux.c:479-504` defines the extlinux fallback layout as `MAX_KERNEL_SIZE = 32 MiB`, `MAX_TAGS_SIZE = 2 MiB`, `tags = base + MAX_KERNEL_SIZE`, and `ramdisk = tags + MAX_TAGS_SIZE`.
+- `boot.log:50-55` captured a successful lk2nd extlinux handoff with `ramdisk @ 0x82400000 (891166)`, which later reached `/init` from the dev initrd.
+- `boot.log:1-4` captured the direct fastboot handoff with `ramdisk @ 0x82400000 (891680)` and `tags/device tree @ 0x80200100`.
+- `boot.log:128-132` captured Linux detecting the external initrd, trying to unpack it, rejecting it as not initramfs, and freeing 872 KiB of initrd memory.
+- `boot.log:186-190` captured `rdinit=/init` failing with `-2` and the resulting `unknown-block(0,0)` root mount failure.
+- Earlier hardware logs showed separate extlinux `fdt` did not reach ARM Linux (`r2=0`), while appended `zImage+DTB` did.
+
+Current use:
+
+- `build-lk2nd-bootable.sh:82-94` defines the built-in initramfs default and Android boot-image layout defaults for direct `fastboot boot` testing.
+- `build-lk2nd-bootable.sh:224-246` creates appended `zImage+DTB` and passes it plus the dev initrd to `mkbootimg`.
+- `build-lk2nd-bootable.sh:264` prints the intended `fastboot boot out/expressltexx/expressltexx-boot.img` command.
+- `build-lk2nd-userdata.sh:103-107` keeps the fallback userdata side-artifact boot-image layout values.
+- `build-lk2nd-userdata.sh:260-334` creates appended `zImage+DTB`, the extlinux image payload, and an Android `boot.img` side artifact.
+
+Notes:
+
+- `build-lk2nd-userdata.sh` remains the recovery/fallback path when USB gadget or fastboot boot is unavailable.
+- `build-dev-initrd.sh` owns the tiny BusyBox/configfs CDC-ACM initrd shared by both local lk2nd image builders.
 
 ## MSM8960 Timer / DGT
 
