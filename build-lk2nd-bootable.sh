@@ -35,13 +35,14 @@ Environment overrides:
   IMAGE              Output boot image path (default: $OUT_DIR/expressltexx-boot.img)
   DEFCONFIG          Kernel defconfig (default: qcom_defconfig)
   DTB                DTB basename (default: qcom-msm8930-samsung-expressltexx.dtb)
-  INITRAMFS          Initramfs path, "auto", "dev"/"minimal", or "none" (default: dev)
+  INITRAMFS          Initramfs path, "dev"/"minimal", or "none" (default: dev)
   BUILTIN_INITRAMFS=0 Keep INITRAMFS external in the Android boot image
                      (default: 1, embedded and forced)
   DEV_INITRD_SCRIPT  Dev initrd builder (default: ./build-dev-initrd.sh)
-  MINIMAL_BUSYBOX_SOURCE
-                     Compressed cpio containing usr/bin/busybox and musl
-                     (default: /tmp/postmarketOS-export/initramfs)
+  BUSYBOX            Static ARM BusyBox binary for dev initrd
+                     (default: $OUT_DIR/cache/busybox-armv7l)
+  BUSYBOX_URL        Download URL used when BUSYBOX is missing
+  BUSYBOX_SHA256     Expected BusyBox SHA256; set empty to skip verification
   CMDLINE            Android boot.img/kernel cmdline
   DEBUG_BRINGUP=1    Force bring-up cmdline and disable SMP (default: 1)
   CROSS_COMPILE      ARM cross prefix, e.g. arm-none-eabi-
@@ -85,7 +86,10 @@ DEBUG_BRINGUP=${DEBUG_BRINGUP:-1}
 BUILTIN_INITRAMFS=${BUILTIN_INITRAMFS:-1}
 SKIP_BUILD=${SKIP_BUILD:-0}
 HOSTCC=${HOSTCC:-cc}
-MINIMAL_BUSYBOX_SOURCE=${MINIMAL_BUSYBOX_SOURCE:-/tmp/postmarketOS-export/initramfs}
+CACHE_DIR=${CACHE_DIR:-"$OUT_DIR/cache"}
+BUSYBOX=${BUSYBOX:-"$CACHE_DIR/busybox-armv7l"}
+BUSYBOX_URL=${BUSYBOX_URL:-https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-armv7l}
+BUSYBOX_SHA256=${BUSYBOX_SHA256:-cd04052b8b6885f75f50b2a280bfcbf849d8710c8e61d369c533acf307eda064}
 DEV_INITRD_SCRIPT=${DEV_INITRD_SCRIPT:-"$ROOT_DIR/build-dev-initrd.sh"}
 
 KERNEL_OFFSET=${KERNEL_OFFSET:-0x00008000}
@@ -115,14 +119,12 @@ case "$INITRAMFS" in
 			OUT_DIR="$OUT_DIR" \
 			LINUX_DIR="$LINUX_DIR" \
 			HOSTCC="$HOSTCC" \
-			MINIMAL_BUSYBOX_SOURCE="$MINIMAL_BUSYBOX_SOURCE"
+			BUSYBOX="$BUSYBOX" \
+			BUSYBOX_URL="$BUSYBOX_URL" \
+			BUSYBOX_SHA256="$BUSYBOX_SHA256"
 		;;
 	auto)
-		if [[ -e /tmp/postmarketOS-export/initramfs ]]; then
-			INITRAMFS=/tmp/postmarketOS-export/initramfs
-		else
-			die 'INITRAMFS=auto requested, but /tmp/postmarketOS-export/initramfs does not exist'
-		fi
+		die 'INITRAMFS=auto was removed; use INITRAMFS=dev or a path'
 		;;
 	none)
 		INITRAMFS=

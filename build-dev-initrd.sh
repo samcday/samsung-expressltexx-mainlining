@@ -16,6 +16,29 @@ need() {
 	have "$1" || die "missing required tool: $1"
 }
 
+download() {
+	local url=$1 output=$2
+
+	if have curl; then
+		curl -fL --retry 3 -o "$output" "$url"
+	elif have wget; then
+		wget -O "$output" "$url"
+	else
+		die "missing required tool: curl or wget (or set BUSYBOX=path)"
+	fi
+}
+
+verify_busybox() {
+	local actual
+
+	[[ -n "$BUSYBOX_SHA256" ]] || return 0
+	need sha256sum
+	actual=$(sha256sum "$BUSYBOX")
+	actual=${actual%% *}
+	[[ "$actual" == "$BUSYBOX_SHA256" ]] || \
+		die "busybox checksum mismatch for $BUSYBOX: expected $BUSYBOX_SHA256, got $actual"
+}
+
 usage() {
 	cat <<'EOF'
 Usage: ./build-dev-initrd.sh [KEY=value ...]
@@ -29,9 +52,9 @@ Environment overrides:
   LINUX_DIR              Kernel tree path for usr/gen_init_cpio.c (default: ./linux)
   OUT_DIR                Output/work directory (default: ./out/expressltexx)
   OUTPUT                 Output cpio.gz (default: $OUT_DIR/dev-initramfs.cpio.gz)
-  MINIMAL_BUSYBOX_SOURCE Compressed cpio containing usr/bin/busybox and musl
-                         (default: /tmp/postmarketOS-export/initramfs,
-                         falling back to prior local initramfs artifacts)
+  BUSYBOX                Static ARM BusyBox binary (default: $OUT_DIR/cache/busybox-armv7l)
+  BUSYBOX_URL            Download URL used when BUSYBOX is missing
+  BUSYBOX_SHA256         Expected BusyBox SHA256; set empty to skip verification
   HOSTCC                 Host C compiler for gen_init_cpio (default: cc)
   KEEP_WORK=1            Keep the staging directory (default: 1)
 EOF
@@ -54,65 +77,40 @@ ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 LINUX_DIR=${LINUX_DIR:-"$ROOT_DIR/linux"}
 OUT_DIR=${OUT_DIR:-"$ROOT_DIR/out/expressltexx"}
 OUTPUT=${OUTPUT:-"$OUT_DIR/dev-initramfs.cpio.gz"}
-MINIMAL_BUSYBOX_SOURCE=${MINIMAL_BUSYBOX_SOURCE:-/tmp/postmarketOS-export/initramfs}
+CACHE_DIR=${CACHE_DIR:-"$OUT_DIR/cache"}
+BUSYBOX=${BUSYBOX:-"$CACHE_DIR/busybox-armv7l"}
+BUSYBOX_URL=${BUSYBOX_URL:-https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-armv7l}
+BUSYBOX_SHA256=${BUSYBOX_SHA256:-cd04052b8b6885f75f50b2a280bfcbf849d8710c8e61d369c533acf307eda064}
 HOSTCC=${HOSTCC:-cc}
 KEEP_WORK=${KEEP_WORK:-1}
 
 [[ -f "$LINUX_DIR/usr/gen_init_cpio.c" ]] || die "missing gen_init_cpio source: $LINUX_DIR/usr/gen_init_cpio.c"
 
-if [[ ! -f "$MINIMAL_BUSYBOX_SOURCE" && "$MINIMAL_BUSYBOX_SOURCE" == /tmp/postmarketOS-export/initramfs ]]; then
-	for candidate in "$OUT_DIR/minimal-initramfs.cpio.gz" "$OUT_DIR/dev-initramfs.cpio.gz"; do
-		if [[ -f "$candidate" ]]; then
-			MINIMAL_BUSYBOX_SOURCE=$candidate
-			break
-		fi
-	done
-fi
-
-[[ -f "$MINIMAL_BUSYBOX_SOURCE" ]] || die "minimal initramfs source not found: $MINIMAL_BUSYBOX_SOURCE"
-
 need "$HOSTCC"
-need cpio
 need gzip
 
 STAGING=${STAGING:-"$OUT_DIR/dev-initrd-work"}
-EXTRACT_DIR="$STAGING/extract"
 GEN_INIT_CPIO="$STAGING/gen_init_cpio"
 SPEC="$STAGING/initramfs.list"
 INIT_SCRIPT="$STAGING/init"
 CPIO_FILE="$STAGING/initramfs.cpio"
 
 rm -rf "$STAGING"
-mkdir -p "$EXTRACT_DIR" "$(dirname "$OUTPUT")"
+mkdir -p "$STAGING" "$(dirname "$OUTPUT")"
 
-gzip -dc "$MINIMAL_BUSYBOX_SOURCE" | \
-	(cd "$EXTRACT_DIR" && cpio -id --quiet \
-		"usr/bin/busybox" \
-		"usr/lib/ld-musl-armhf.so.1" \
-		"bin/busybox" \
-		"lib/ld-musl-armhf.so.1")
+if [[ ! -f "$BUSYBOX" ]]; then
+	[[ -n "$BUSYBOX_URL" ]] || die "busybox not found and BUSYBOX_URL is empty: $BUSYBOX"
+	mkdir -p "$(dirname "$BUSYBOX")"
+	tmp_busybox="$BUSYBOX.download"
+	rm -f "$tmp_busybox"
+	printf '==> Downloading static BusyBox from %s\n' "$BUSYBOX_URL"
+	download "$BUSYBOX_URL" "$tmp_busybox"
+	mv "$tmp_busybox" "$BUSYBOX"
+	chmod 0755 "$BUSYBOX"
+fi
 
-BUSYBOX_PATH=
-MUSL_PATH=
-
-for candidate in "$EXTRACT_DIR/usr/bin/busybox" "$EXTRACT_DIR/bin/busybox"; do
-	if [[ -f "$candidate" ]]; then
-		BUSYBOX_PATH=$candidate
-		break
-	fi
-done
-
-for candidate in "$EXTRACT_DIR/usr/lib/ld-musl-armhf.so.1" "$EXTRACT_DIR/lib/ld-musl-armhf.so.1"; do
-	if [[ -f "$candidate" ]]; then
-		MUSL_PATH=$candidate
-		break
-	fi
-done
-
-[[ -n "$BUSYBOX_PATH" ]] || \
-	die "minimal initramfs source lacks busybox: $MINIMAL_BUSYBOX_SOURCE"
-[[ -n "$MUSL_PATH" ]] || \
-	die "minimal initramfs source lacks ld-musl-armhf.so.1: $MINIMAL_BUSYBOX_SOURCE"
+[[ -f "$BUSYBOX" ]] || die "busybox not found: $BUSYBOX"
+verify_busybox
 
 cat > "$INIT_SCRIPT" <<'EOF'
 #!/bin/sh
@@ -284,24 +282,26 @@ dir /run 0755 0 0
 dir /tmp 01777 0 0
 dir /root 0700 0 0
 dir /mnt 0755 0 0
-dir /lib 0755 0 0
-dir /usr 0755 0 0
-dir /usr/lib 0755 0 0
+dir /etc 0755 0 0
+dir /var 0755 0 0
+dir /var/run 0755 0 0
 file /init $INIT_SCRIPT 0755 0 0
-file /bin/busybox $BUSYBOX_PATH 0755 0 0
-file /lib/ld-musl-armhf.so.1 $MUSL_PATH 0755 0 0
-slink /lib/libc.musl-armv7.so.1 ld-musl-armhf.so.1 0777 0 0
-slink /usr/lib/ld-musl-armhf.so.1 ../../lib/ld-musl-armhf.so.1 0777 0 0
-slink /usr/lib/libc.musl-armv7.so.1 ld-musl-armhf.so.1 0777 0 0
+file /bin/busybox $BUSYBOX 0755 0 0
 nod /dev/console 0600 0 0 c 5 1
+nod /dev/kmsg 0600 0 0 c 1 11
 nod /dev/null 0666 0 0 c 1 3
 nod /dev/zero 0666 0 0 c 1 5
 nod /dev/tty 0666 0 0 c 5 0
+slink /bin/[ busybox 0777 0 0
 slink /bin/ash busybox 0777 0 0
+slink /bin/blkid busybox 0777 0 0
 slink /bin/cat busybox 0777 0 0
 slink /bin/dd busybox 0777 0 0
 slink /bin/dmesg busybox 0777 0 0
 slink /bin/echo busybox 0777 0 0
+slink /bin/fdisk busybox 0777 0 0
+slink /bin/find busybox 0777 0 0
+slink /bin/grep busybox 0777 0 0
 slink /bin/hexdump busybox 0777 0 0
 slink /bin/ln busybox 0777 0 0
 slink /bin/ls busybox 0777 0 0
@@ -317,6 +317,8 @@ slink /bin/sync busybox 0777 0 0
 slink /bin/true busybox 0777 0 0
 slink /bin/umount busybox 0777 0 0
 slink /bin/uname busybox 0777 0 0
+slink /sbin/blkid ../bin/busybox 0777 0 0
+slink /sbin/fdisk ../bin/busybox 0777 0 0
 slink /sbin/getty ../bin/busybox 0777 0 0
 slink /sbin/poweroff ../bin/busybox 0777 0 0
 slink /sbin/reboot ../bin/busybox 0777 0 0

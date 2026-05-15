@@ -32,13 +32,14 @@ Environment overrides:
   IMAGE              Output userdata image path (default: $OUT_DIR/expressltexx-userdata.img)
   DEFCONFIG          Kernel defconfig (default: qcom_defconfig)
   DTB                DTB basename (default: qcom-msm8930-samsung-expressltexx.dtb)
-  INITRAMFS          Optional initramfs to include; use "auto" for /tmp/postmarketOS-export/initramfs,
-                     or "dev"/"minimal" for ./build-dev-initrd.sh
+  INITRAMFS          Optional initramfs path; use "dev"/"minimal" for ./build-dev-initrd.sh
+                     or "none" to omit it
   BUILTIN_INITRAMFS=1 Embed INITRAMFS into the kernel image (default: 0)
   DEV_INITRD_SCRIPT  Dev initrd builder (default: ./build-dev-initrd.sh)
-  MINIMAL_BUSYBOX_SOURCE
-                     Compressed cpio containing usr/bin/busybox and musl
-                     (default: /tmp/postmarketOS-export/initramfs)
+  BUSYBOX            Static ARM BusyBox binary for dev initrd
+                     (default: $OUT_DIR/cache/busybox-armv7l)
+  BUSYBOX_URL        Download URL used when BUSYBOX is missing
+  BUSYBOX_SHA256     Expected BusyBox SHA256; set empty to skip verification
   CMDLINE            Extlinux/boot.img cmdline template
   DEBUG_BRINGUP=1    Force bring-up cmdline and disable SMP (default: 1)
   CROSS_COMPILE      ARM cross prefix, e.g. arm-none-eabi-
@@ -91,7 +92,10 @@ SPARSE=${SPARSE:-1}
 SKIP_BUILD=${SKIP_BUILD:-0}
 KEEP_WORK=${KEEP_WORK:-0}
 HOSTCC=${HOSTCC:-cc}
-MINIMAL_BUSYBOX_SOURCE=${MINIMAL_BUSYBOX_SOURCE:-/tmp/postmarketOS-export/initramfs}
+CACHE_DIR=${CACHE_DIR:-"$OUT_DIR/cache"}
+BUSYBOX=${BUSYBOX:-"$CACHE_DIR/busybox-armv7l"}
+BUSYBOX_URL=${BUSYBOX_URL:-https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-armv7l}
+BUSYBOX_SHA256=${BUSYBOX_SHA256:-cd04052b8b6885f75f50b2a280bfcbf849d8710c8e61d369c533acf307eda064}
 DEV_INITRD_SCRIPT=${DEV_INITRD_SCRIPT:-"$ROOT_DIR/build-dev-initrd.sh"}
 
 BOOT_START_SECTOR=2048
@@ -106,7 +110,7 @@ TAGS_OFFSET=${TAGS_OFFSET:-0x00000100}
 BOOT_BASE=${BOOT_BASE:-0x80200000}
 BOOT_PAGESIZE=${BOOT_PAGESIZE:-2048}
 
-DEFAULT_CMDLINE='earlycon=msm_serial_dm,0x16440000 console=tty0 console=ttyMSM0,115200n8 ignore_loglevel loglevel=8 clk_ignore_unused pd_ignore_unused regulator_ignore_unused root=UUID=@ROOT_UUID@ rw rdinit=/init panic=0 pmos_boot_uuid=@BOOT_UUID@ pmos_root_uuid=@ROOT_UUID@ pmos_rootfsopts=defaults'
+DEFAULT_CMDLINE='earlycon=msm_serial_dm,0x16440000 console=tty0 console=ttyMSM0,115200n8 ignore_loglevel loglevel=8 clk_ignore_unused pd_ignore_unused regulator_ignore_unused root=UUID=@ROOT_UUID@ rw rootwait panic=0'
 DEV_CMDLINE='earlycon=msm_serial_dm,0x16440000 console=tty0 console=ttyMSM0,115200n8 ignore_loglevel loglevel=8 clk_ignore_unused pd_ignore_unused regulator_ignore_unused rdinit=/init panic=0'
 
 [[ -d "$LINUX_DIR" ]] || die "kernel tree not found: $LINUX_DIR"
@@ -139,15 +143,16 @@ case "$INITRAMFS" in
 			OUT_DIR="$OUT_DIR" \
 			LINUX_DIR="$LINUX_DIR" \
 			HOSTCC="$HOSTCC" \
-			MINIMAL_BUSYBOX_SOURCE="$MINIMAL_BUSYBOX_SOURCE" \
+			BUSYBOX="$BUSYBOX" \
+			BUSYBOX_URL="$BUSYBOX_URL" \
+			BUSYBOX_SHA256="$BUSYBOX_SHA256" \
 			KEEP_WORK="$KEEP_WORK"
 		;;
 	auto)
-		if [[ -e /tmp/postmarketOS-export/initramfs ]]; then
-			INITRAMFS=/tmp/postmarketOS-export/initramfs
-		else
-			die 'INITRAMFS=auto requested, but /tmp/postmarketOS-export/initramfs does not exist'
-		fi
+		die 'INITRAMFS=auto was removed; use INITRAMFS=dev or a path'
+		;;
+	none)
+		INITRAMFS=
 		;;
 esac
 
@@ -163,7 +168,7 @@ fi
 
 BUILTIN_INITRAMFS_SOURCE=
 if [[ "$BUILTIN_INITRAMFS" == 1 ]]; then
-	[[ -n "$INITRAMFS" ]] || die 'BUILTIN_INITRAMFS=1 requires INITRAMFS=path, INITRAMFS=auto, or INITRAMFS=dev'
+	[[ -n "$INITRAMFS" ]] || die 'BUILTIN_INITRAMFS=1 requires INITRAMFS=path or INITRAMFS=dev'
 	BUILTIN_INITRAMFS_SOURCE="$OUT_DIR/initramfs.cpio.gz"
 	ln -sfn "$INITRAMFS" "$BUILTIN_INITRAMFS_SOURCE"
 fi
@@ -272,8 +277,8 @@ if [[ "$KEEP_WORK" != 1 ]]; then
 fi
 mkdir -p "$WORK_DIR"
 
-BOOT_FS="$WORK_DIR/pmos-boot.ext2"
-ROOT_FS="$WORK_DIR/pmos-root.ext4"
+BOOT_FS="$WORK_DIR/express-boot.ext2"
+ROOT_FS="$WORK_DIR/express-root.ext4"
 EXTLINUX_CONF="$WORK_DIR/extlinux.conf"
 EMPTY_RAMDISK="$WORK_DIR/empty-ramdisk"
 
@@ -281,8 +286,8 @@ truncate -s "${BOOT_SIZE_MIB}M" "$BOOT_FS"
 truncate -s "${ROOT_SIZE_MIB}M" "$ROOT_FS"
 
 printf '==> Creating filesystems\n'
-mkfs.ext2 -F -L pmos_boot "$BOOT_FS" >/dev/null
-mkfs.ext4 -F -L pmos_root "$ROOT_FS" >/dev/null
+mkfs.ext2 -F -L express_boot "$BOOT_FS" >/dev/null
+mkfs.ext4 -F -L express_root "$ROOT_FS" >/dev/null
 
 BOOT_UUID=$(blkid -s UUID -o value "$BOOT_FS")
 ROOT_UUID=$(blkid -s UUID -o value "$ROOT_FS")

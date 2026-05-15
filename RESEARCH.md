@@ -103,6 +103,7 @@ Values currently used:
 - USB descriptor versions are `bcdUSB = 0x0200` and `bcdDevice = 0x0100` for a simple USB 2.0 test gadget.
 - The configuration is bus-powered with `bmAttributes = 0x80` and `MaxPower = 100`.
 - The initramfs starts `getty -L -n -l /bin/sh 115200 ttyGS0 vt100` after `/dev/ttyGS0` appears, while keeping the UART shell on `/dev/ttyMSM0` for recovery.
+- The initramfs is built from one static ARMv7 BusyBox binary. The default source is `https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-armv7l`, pinned by SHA256 `cd04052b8b6885f75f50b2a280bfcbf849d8710c8e61d369c533acf307eda064`.
 
 Sources:
 
@@ -114,12 +115,14 @@ Sources:
 - `linux/Documentation/usb/gadget_serial.rst:131-145` documents the resulting `/dev/ttyGS0` node and running getty on it.
 - `linux/drivers/usb/gadget/Kconfig:249-257` defines `CONFIG_USB_CONFIGFS_ACM` and selects `USB_U_SERIAL` plus `USB_F_ACM`.
 - `/usr/share/hwdata/usb.ids:20954-20962` maps `1d6b:0104` to Linux Foundation Multifunction Composite Gadget.
+- `https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-armv7l.log` records the default BusyBox binary as a static `armv7l-linux-musleabihf` build with the required shell, mount, mknod, stty, getty, and symlink applets enabled.
 
 Current use:
 
-- `build-dev-initrd.sh:179-247` creates `/dev/ttyGS0` if needed, configures the CDC-ACM gadget, binds the first UDC, and starts the USB serial shell.
-- `build-dev-initrd.sh:306-320` includes BusyBox `ln` and `getty` applet links required by the gadget setup.
-- `build-lk2nd-userdata.sh:221-231` and `build-lk2nd-bootable.sh:190-199` enable the kernel config options needed by local bring-up images, including `CONFIG_USB_CONFIGFS_ACM`.
+- `build-dev-initrd.sh:80-113` sets the default BusyBox URL/checksum, downloads the binary if needed, and verifies it before packaging.
+- `build-dev-initrd.sh:177-245` creates `/dev/ttyGS0` if needed, configures the CDC-ACM gadget, binds the first UDC, and starts the USB serial shell.
+- `build-dev-initrd.sh:295-324` includes BusyBox applet links required by the gadget setup and storage-debug shell.
+- `build-lk2nd-userdata.sh:216-237` and `build-lk2nd-bootable.sh:185-202` enable the kernel config options needed by local bring-up images, including `CONFIG_USB_CONFIGFS_ACM`.
 
 Notes:
 
