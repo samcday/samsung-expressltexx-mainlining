@@ -54,6 +54,44 @@ Notes:
 
 - This is a temporary compatibility detail of the current MSM8930 bring-up. Revisit it if a dedicated MSM8930 GCC driver/binding is added.
 
+## MSM8930 RPM / PM8917 Regulators
+
+Values currently used:
+
+- The MSM8930 RPM message RAM base is `0x00108000`, exposed in DT as `rpm@108000` with a `0x1000` register range. The RPM driver uses status at base, control at base `+ 0x400`, and request memory at base `+ 0x600`; downstream also lists ACK memory at base `+ 0xa00`.
+- RPM interrupts use GIC SPI 19 for ACK, SPI 21 for ERR, and SPI 22 for wakeup. The outgoing IPC vote uses the APCS/L2CC syscon register offset `0x8` and bit 2, matching downstream `ipc_rpm_val = 4`.
+- Mainline uses `qcom,rpm-msm8930` with a minimal resource table for the regulator rails needed by current bring-up. Do not reuse the MSM8960 PM8921 table for these rails: downstream MSM8930 PM8917/PM8038 target/status IDs differ from mainline MSM8960 PM8921 IDs.
+- The Express DT currently models PM8917 rails. Downstream Express code switches to PM8917 RPM data when `socinfo_get_pmic_model() == PMIC_MODEL_PM8917`, and the downstream peripheral inventory overwhelmingly uses `8917_*` regulator names for later board revisions.
+- PM8917 rails currently modeled are S4, L3, L4, and L5. L3 supplies HSUSB 3.3 V at `3075000` uV, L4 supplies HSUSB 1.8 V at `1800000` uV, L5 supplies SDCC1 `sdc_vdd` at `2950000` uV, and S4 supplies SDCC1 `sdc_vdd_io` at `1800000` uV.
+- Minimal PM8038 S4/L3/L4/L5/L11 regulator data is also present in the driver because downstream supports the PM8038 alternate path and maps SDCC1 `sdc_vdd_io` to PM8038 L11, not S4.
+- MSM8930 PM8917/PM8038 regulator request formats and voltage ranges match the existing mainline RPM 8960 SMPS/PLDO templates used by PM8921.
+
+Sources:
+
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/include/mach/msm_iomap-8930.h:41-42` defines `MSM8930_RPM_PHYS = 0x00108000` and `MSM8930_RPM_SIZE = SZ_4K`.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/devices-8930.c:79-90` defines the PM8038 RPM page offsets, interrupts, and IPC register/value; `devices-8930.c:293-304` defines the same base/interrupt/IPC facts for the PM8917 path.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-express.c:3739-3763` switches Express platform data to PM8917 RPM regulators when PM8917 is detected; `board-express.c:3808-3825` selects PM8038 or PM8917 RPM init by `socinfo_get_pmic_model()`.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/include/mach/rpm-8930.h:63-75` defines PM8038 S4/L3/L4/L5/L11 selector IDs; `rpm-8930.h:228-255` defines their request target IDs; `rpm-8930.h:443-472` defines their status IDs.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/include/mach/rpm-8930.h:102-115` defines PM8917 S4/L3/L4/L5 selector IDs; `rpm-8930.h:310-329` defines their request target IDs; `rpm-8930.h:523-548` defines their status IDs.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/rpm-regulator-8930.c:19-42` defines MSM8930 RPM LDO/SMPS request bit layouts; `rpm-regulator-8930.c:58-83` defines PLDO and SMPS voltage ranges matching the mainline RPM 8960 templates.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-regulator-pm8917.c:46-58` maps PM8917 L3/L4/L5 to `HSUSB_3p3`, `HSUSB_1p8`, and SDCC1 `sdc_vdd`; `board-8930-regulator-pm8917.c:205-218` maps S4 to SDCC1 `sdc_vdd_io`; `board-8930-regulator-pm8917.c:696-711` gives S4/L3/L4/L5 voltages and always-on flags.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-regulator-pm8038.c:43-55` maps PM8038 L3/L4/L5 to `HSUSB_3p3`, `HSUSB_1p8`, and SDCC1 `sdc_vdd`; `board-8930-regulator-pm8038.c:101-107` maps L11 to SDCC1 `sdc_vdd_io`; `board-8930-regulator-pm8038.c:519-538` gives S4/L3/L4/L5/L11 voltages and always-on flags.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-storage.c:42-82` independently records SDCC1 `sdc_vdd = 2950000` uV and `sdc_vdd_io = 1800000` uV as always-on eMMC supplies.
+
+Current use:
+
+- `linux/include/dt-bindings/mfd/qcom-rpm.h:173-181` assigns mainline resource IDs for the minimal PM8038/PM8917 MSM8930 RPM rails.
+- `linux/drivers/mfd/qcom_rpm.c:341-365` adds the MSM8930 RPM resource table and template; `qcom_rpm.c:465` matches `qcom,rpm-msm8930`.
+- `linux/drivers/regulator/qcom_rpm-regulator.c:918-950` adds minimal `qcom,rpm-pm8038-regulators` and `qcom,rpm-pm8917-regulators` support.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930.dtsi:87-96` adds the MSM8930 RPM node.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:59-94` declares the PM8917 S4/L3/L4/L5 regulators; `qcom-msm8930-samsung-expressltexx.dts:96-102` wires SDCC1 to L5/S4; `qcom-msm8930-samsung-expressltexx.dts:161-163` wires the USB PHY to L4/L3.
+- `build-lk2nd-bootable.sh:101` and `build-lk2nd-userdata.sh:113-114` no longer pass `regulator_ignore_unused` by default.
+
+Notes:
+
+- The PMIC variant still should be verified from hardware logs when possible. If a tested GT-I8730 reports PM8038 instead of PM8917, the board DTS should switch the regulator node compatible/phandles to the PM8038 rails above.
+- This is intentionally a minimal early bring-up RPM/regulator model. It covers UART-independent RPM access plus the USB/eMMC rails needed to remove `regulator_ignore_unused`, not the complete PM8917/PM8038 regulator set.
+
 ## MSM8930 HSUSB / UDC
 
 Values currently used:
@@ -63,7 +101,7 @@ Values currently used:
 - USB1 HS interrupt is `USB1_HS_IRQ = GIC_SPI_START + 100`, represented in DT as `interrupts = <GIC_SPI 100 IRQ_TYPE_LEVEL_HIGH>`.
 - Mainline USB clocks/resets currently use the existing MSM8960 GCC IDs: `USB_HS1_XCVR_CLK = 128`, `USB_HS1_H_CLK = 126`, and `USB_HS1_RESET = 64`.
 - HSUSB PHY uses the 28 nm integrated ULPI PHY path. Mainline represents this with `qcom,usb-hs-phy-msm8960`, `phy_type = "ulpi"`, and a 60 MHz `USB_HS1_XCVR_CLK` assignment.
-- Temporary fixed USB PHY supplies are modeled as `v1p8 = 1800000` uV and `v3p3 = 3075000` uV. Downstream maps HSUSB 1.8 V to PM8917/PM8038 L4 and HSUSB 3.3 V to L3; both downstream regulator files program L4 to 1.8 V and L3 to 3.075 V.
+- USB PHY supplies are now modeled through RPM regulators: PM8917 L4 for `v1p8 = 1800000` uV and PM8917 L3 for `v3p3 = 3075000` uV. Downstream maps HSUSB 1.8 V to PM8917/PM8038 L4 and HSUSB 3.3 V to L3; both downstream regulator files program L4 to 1.8 V and L3 to 3.075 V.
 - Express downstream PHY init sequence is `0x44 0x80, 0x5f 0x81, 0x3c 0x82, 0x13 0x83`, with downstream comments describing VBUS/disconnect thresholds, DC voltage level, preemphasis/rise/fall, and source impedance adjustment.
 - Current Linux test mode is peripheral-only: `dr_mode = "peripheral"`.
 
@@ -85,14 +123,14 @@ Sources:
 
 Current use:
 
-- `linux/arch/arm/boot/dts/qcom/qcom-msm8930.dtsi:246-276` adds disabled `usb1: usb@12500000` and nested ULPI `usb_hs1_phy` nodes.
-- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:41-56` adds temporary fixed USB PHY 1.8 V and 3.075 V supply nodes.
-- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:155-168` enables `usb1` in peripheral mode, attaches the temporary PHY supplies, and supplies the Express PHY init sequence.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930.dtsi:257-287` adds disabled `usb1: usb@12500000` and nested ULPI `usb_hs1_phy` nodes.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:72-84` defines the PM8917 L3/L4 USB PHY supply regulators.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:156-171` enables `usb1` in peripheral mode, attaches the PM8917 PHY supplies, and supplies the Express PHY init sequence.
 
 Notes:
 
-- This is a first UDC bring-up pass. It does not yet model the TSU6721 MUIC, USB extcon/VBUS handling, host mode, or the real PMIC/RPM regulator topology.
-- The fixed USB PHY supplies are a temporary bring-up workaround for a `phy poweron failed --> -22` error seen when the gadget bound and the PHY driver tried to set voltage on dummy regulators.
+- This is a first UDC bring-up pass. It does not yet model the TSU6721 MUIC, USB extcon/VBUS handling, or host mode.
+- The previous fixed USB PHY supplies were a temporary bring-up workaround for a `phy poweron failed --> -22` error seen when the gadget bound and the PHY driver tried to set voltage on dummy regulators.
 
 ## Minimal Initramfs CDC-ACM Gadget
 
@@ -140,7 +178,7 @@ Values currently used:
 - SDCC1 uses the existing MSM8960 GCC-compatible IDs `SDC1_CLK`, `SDC1_H_CLK`, and `SDC1_RESET` while MSM8930-specific GCC support is not split out.
 - The downstream Express storage table supports SDCC1 clock rates `400000`, `24000000`, `48000000`, and `96000000`; the DT caps `max-frequency` at `96000000` for the first pass.
 - Downstream Express enables `CONFIG_MMC_MSM_SDC1_8_BIT_SUPPORT`, so DT sets `bus-width = <8>`.
-- Temporary fixed eMMC supplies are `vmmc = 2950000` uV and `vqmmc = 1800000` uV, matching downstream SDCC1 `sdc_vdd` and `sdc_vdd_io` regulator voltage requests.
+- SDCC1 eMMC supplies are now modeled through RPM regulators: PM8917 L5 for `vmmc = 2950000` uV and PM8917 S4 for `vqmmc = 1800000` uV, matching downstream SDCC1 `sdc_vdd` and `sdc_vdd_io` regulator voltage requests.
 - SDCC1 pad drive matches downstream active/sleep values: active CLK 16 mA, CMD/DATA 10 mA; sleep CLK/CMD/DATA 2 mA. CLK is no-pull; CMD/DATA are pull-up.
 
 Sources:
@@ -151,6 +189,7 @@ Sources:
 - `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/include/mach/irqs-8930.h:141-147` defines `SDC1_BAM_IRQ = GIC_SPI_START + 98` and `SDC1_IRQ_0 = GIC_SPI_START + 104`.
 - `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-storage.c:42-52` defines SDCC1 `sdc_vdd` as fixed 2.95 V and always-on.
 - `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-storage.c:73-82` defines SDCC1 `sdc_vdd_io` as fixed 1.8 V and always-on.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-regulator-pm8917.c:55-58` maps PM8917 L5 to SDCC1 `sdc_vdd`; `board-8930-regulator-pm8917.c:214-218` maps PM8917 S4 to SDCC1 `sdc_vdd_io`.
 - `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-storage.c:114-137` defines SDCC1 active/sleep pad drive and pull settings.
 - `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-storage.c:223-250` defines SDCC1 clock rates, non-removable eMMC, 8-bit conditional support, bus voting, and HS200/DDR capabilities.
 - `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-storage.c:294-309` registers SDCC1 for Express/MSM8930.
@@ -162,16 +201,108 @@ Sources:
 
 Current use:
 
-- `linux/arch/arm/boot/dts/qcom/qcom-msm8930.dtsi:188-216` adds disabled SDCC1 and SDCC1 BAM nodes.
-- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:59-75` adds temporary fixed eMMC VDD and VDD_IO supplies.
-- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:94-101` enables SDCC1 with pinctrl and supply phandles.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930.dtsi:199-224` adds disabled SDCC1 and SDCC1 BAM nodes.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:63-92` defines the PM8917 S4/L5 eMMC supply regulators.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:96-102` enables SDCC1 with pinctrl and PM8917 supply phandles.
 - `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:113-153` adds SDCC1 active and sleep pin states.
 - `build-lk2nd-bootable.sh:191-195` and `build-lk2nd-userdata.sh:222-227` force the local test kernel to keep MMCI, Qualcomm DML, and BAM DMA support enabled.
 
 Notes:
 
-- This is a first eMMC probe pass. External SDCC3, card detect/write protect, true PMIC/RPM regulators, SDCC reset handling, and HS200/DDR tuning are deliberately left for later.
-- The temporary fixed supplies should be replaced once the PM8917/PM8038 regulator topology is modeled.
+- This is a first eMMC probe pass. External SDCC3, card detect/write protect, SDCC reset handling, and HS200/DDR tuning are deliberately left for later.
+- The previous temporary fixed eMMC supplies have been replaced by the minimal PM8917 RPM regulator model.
+
+## Expressltexx Downstream Peripheral Inventory
+
+Values currently known:
+
+- Current mainline `qcom-msm8930.dtsi` is still a minimal bring-up file: clocks, TLMM, SDCC1/eMMC, GSBI5 UART, USB HS1, and CPU/timer plumbing only. Most peripherals below are downstream hardware facts, not yet modeled in Linux DT.
+- Physical keys are active-low GPIO keys: volume up GPIO 50, volume down GPIO 81, home GPIO 35. Home is wake-capable downstream; all use 5 ms debounce.
+- Touchscreen is Atmel maXTouch `MXT224S` on GSBI3 I2C bus ID 3, I2C address `0x4a`, IRQ GPIO 11, logical range X `0..479`, Y `0..799`, firmware/config tag `I8730_AT_1226`. Newer Express board revs use regulators `8917_lvs6` for 1.8 V and `8917_l31` set to 3.3 V; older revs use GPIO 79 (`GPIO_TSP_D_EN`) and GPIO 80 (`GPIO_TSP_A_EN`).
+- Touchkeys are Cypress touchkeys on a bitbanged I2C bus ID 16, I2C address `0x20`, IRQ GPIO 65, keycodes `KEY_MENU` and `KEY_BACK`. Newer revs use bitbang SDA/SCL GPIO 24/25 plus `8917_lvs5` for 1.8 V, `8917_l30` set to 2.8 V, and LED regulator `8917_l33` set to 3.3 V; older revs use SDA/SCL GPIO 71/72, LDO enable GPIO 99, and LED GPIO 51.
+- Haptics use the downstream Immersion/Vibetonz `tspdrv` platform device with `HAPTIC_PWM`, PWM GPIO 70, enable GPIO 63, `is_pmic_vib_en = 0`, `is_pmic_haptic_pwr_en = 0`, and `is_no_haptic_pwr = 1`. This is not the PMIC vibrator path.
+- MUIC / micro-USB switch is `TSU6721`, bitbanged I2C bus ID 15, SDA GPIO 73, SCL GPIO 74, I2C address `0x4a >> 1` = `0x25`, IRQ GPIO 14. Downstream cable callbacks report USB, AC, UART/JIG, CDP, OTG, audio dock, car dock, desk dock, and incompatible chargers into OTG and battery state.
+- NFC is NXP `PN547` on bitbanged I2C bus ID 17, SDA GPIO 95, SCL GPIO 96, I2C address `0x2b`, IRQ GPIO 106, VEN/enable GPIO 48, firmware GPIO 92, optional clock-request GPIO 90.
+- ALS/proximity sensor is downstream `taos` / TAOS Triton at I2C address `0x39` on bitbanged bus ID 14, SDA GPIO 12, SCL GPIO 13, proximity IRQ GPIO 49. Sensor rails are `sensor_opt` set to 2.85 V and `sensor_pwr` at 1.8 V; prox LED uses `8917_l16` set to 3.0 V on board rev >= 03 or GPIO 89 on older revs.
+- Motion sensors are InvenSense MPU6050 at I2C address `0x68` and MPU6500 downstream dummy address `0x62`, IRQ GPIO 67, with orientation matrix `{ 0, 1, 0, -1, 0, 0, 0, 0, 1 }`. Magnetometer is Yamaha YAS532-compatible downstream name `geomagnetic` at I2C address `0x2e`.
+- MHL/HDMI bridge is Silicon Image `SII9234` on bitbanged I2C GPIO 8/9, bus ID `MSM_MHL_I2C_BUS_ID`, with addresses `0x72 >> 1`, `0x7a >> 1`, `0x92 >> 1`, and `0xc8 >> 1`. Control GPIOs are reset GPIO 1, enable GPIO 2, wake GPIO 77, interrupt GPIO 78, select GPIO 82; regulators are `8917_l12` 1.2 V, `8917_l35` 3.3 V, and `8917_lvs7`.
+- Display panel is downstream `mipi_magna`, enabled by `CONFIG_FB_MSM_MIPI_MAGNA_OLED_VIDEO_WVGA_PT_PANEL`. Panel timing is 480x800, RGB888, 24 bpp, 60 Hz, MIPI DSI video burst mode, 2 data lanes, `dlane_swap = 0x01`, clock rate `343500000`, hsync pulse/back/front `4/16/80`, vsync pulse/back/front `2/4/10`, backlight range `1..255`.
+- Camera config enables `MT9M114`, `OV2720`, `ISX012`, and `SR130PC20`. Concrete Express board data describes rear `ISX012` at I2C address `0x3d`, CSI0, 2 lanes (`lane_mask = 0x3`), mount angle 90, reset GPIO 107, standby GPIO 54, flash GPIOs 3 and 64, MCLK GPIO 5. Front `SR130PC20` is at I2C address `0x20`, CSI1, 1 lane (`lane_mask = 0x1`), mount angle 270, and uses main MCLK GPIO 5 on `CONFIG_MACH_EXPRESS`.
+- Camera GPIO and rail facts: flash GPIO 3, main MCLK GPIO 5, camera core enable GPIO 6, camera I2C SDA/SCL GPIO 20/21, camera IO enable GPIO 34, camera analog enable GPIO 38, AF enable GPIO 66, VT standby GPIO 18, main standby GPIO 54, front reset GPIO 76, main reset GPIO 107. Power sequencing uses `GPIO_CAM_CORE_EN` for 5M core 1.2 V, `8917_l34` for sensor IO 1.8 V, `8917_l32` for sensor AVDD 2.8 V, and `8917_l11` for rear AF 2.8 V.
+- Audio codec is Qualcomm WCD9304/Sitar over SLIMbus bus 1, with downstream `sitar-slim` / `sitar1p1-slim`, IRQ GPIO 62, reset GPIO 42, and supplies including `CDC_VDD_CP` 2.2 V, RX/TX/VDDIO rails at 1.8 V, and digital/analog 1.2-1.25 V rails.
+- WLAN is Qualcomm WCNSS/Prima at downstream MMIO `0x03000000` size `0x280000`, 5-wire GPIOs 84-88, and `has_48mhz_xo = 1`. Android exposes Wi-Fi as `wlan0`; Bluetooth transport is Qualcomm SMD.
+- FM uses downstream platform device `iris_fm`. Android ships `fm_qsoc_patches` and runs `init.qcom.fm.sh` for FM setup.
+- Charger/fuel/battery path uses PM8921 charger/BMS/sec-charger configs with charging current table entries including USB `500/475` mA, AC `1000/1500` mA, CDP `1000/1500` mA, OTG `0/0`; max battery voltage `4350` mV; term current `60` mA; USB max current `1000` mA; sense resistor `10000` uOhm; connector resistance `45` mOhm. Battery data is `Samsung_8930_Express2_2000mAh_data` with FCC `2000` mAh, default rbatt `166` mOhm, capacitive rbatt `60` mOhm.
+- External SD is SDCC3, 4-bit, with card-detect GPIO 39 active-low. Downstream SDCC3 supplies are `sdc_vdd = 2950000` uV and `sdc_vdd_io = 2950000/1850000` uV, with clock rates `400000`, `24000000`, `48000000`, `96000000`, and `192000000`.
+- Mainline `samsung-expressatt` overlap is strongest for maXTouch (`atmel,maxtouch` at `0x4a`, IRQ GPIO 11), partial for GPIO keys (volume GPIOs 50/81 match but home is GPIO 40 on expressatt vs GPIO 35 on expressltexx), partial for NFC (`PN544` upstream expressatt vs downstream `PN547` expressltexx, both at `0x2b` and IRQ GPIO 106), and partial for sensors (YAS532 matches, ALS/prox is same broad AMS/TAOS family, accelerometer/gyro differs).
+
+Sources:
+
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930.dtsi:199-289` currently contains SDCC1, GSBI5 UART, USB HS1, and supporting minimal SoC nodes only.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/include/mach/express-gpio.h:23-129` defines Express GPIO numbers for camera, touchscreen, keys, touchkeys, vibrator, MUIC, NFC, sensors, MHL, audio, and OTG-related lines.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/devices-msm8x60.h:27-60` defines Express-related downstream I2C bus IDs: geomagnetic 11, sensors 12, optical 14, TSU6721 15, and NFC 17.
+- `android_kernel_samsung_msm8930-common/arch/arm/configs/samsung_express_defconfig:273-326` enables TSU6721, PN547, GPIO keys, Cypress touchkey, and MXT224S touchscreen.
+- `android_kernel_samsung_msm8930-common/arch/arm/configs/samsung_express_defconfig:332-336` enables MPU6050 and MPU6500 input drivers.
+- `android_kernel_samsung_msm8930-common/arch/arm/configs/samsung_express_defconfig:356-373` enables PM8921 charger/BMS/sec-charger, PM8xxx support, and WCD9304 codec.
+- `android_kernel_samsung_msm8930-common/arch/arm/configs/samsung_express_defconfig:387-417` enables MSM camera sensors, Iris FM, MHL, and Magna OLED panel.
+- `android_kernel_samsung_msm8930-common/arch/arm/configs/samsung_express_defconfig:491-530` enables USB host/gadget/OTG support.
+- `android_kernel_samsung_msm8930-common/arch/arm/configs/samsung_express_defconfig:572-579` enables Vibetonz, YAS532 magnetometer, TAOS optical sensor, and sensor symlink support.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-express.c:277-453` defines TSU6721 bitbang I2C, address, IRQ, and cable callbacks.
+- `android_kernel_samsung_msm8930-common/drivers/misc/tsu6721.c:1-45` identifies the downstream driver as TSU6721 and gives device ID constants `0x0a` and rev `0x12`.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-express.c:496-665` defines SII9234 MHL GPIOs, regulators, reset sequence, and four I2C client addresses.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-express.c:678-715` defines MPU6050/MPU6500 and geomagnetic I2C board info plus the MPU orientation matrix and calibration file paths.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-express.c:718-783` defines sensor power regulators `sensor_opt` and `sensor_pwr`.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-express.c:786-924` defines TAOS optical sensor bus, address, thresholds, IRQ, and prox LED power path.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-express.c:928-983` defines PN547 I2C bus, address, IRQ, VEN, firmware, and optional clock request GPIOs.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-express.c:2673-2715` defines active-low volume/home GPIO key data and home wakeup behavior.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-express.c:3116-3132` defines the Vibetonz `tspdrv` haptic PWM platform data.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-input-mxt.c:448-550` defines Express maXTouch board-revision-dependent power sequencing.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-input-mxt.c:552-595` defines maXTouch platform data, address `0x4a`, IRQ GPIO 11, dimensions, and firmware/config tag.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-input-tkey.c:408-650` defines Cypress touchkey power, LED, address `0x20`, IRQ GPIO 65, keycodes, and bitbanged I2C GPIO selection by board revision.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-display.c:2418-2423` registers downstream panel device `mipi_magna`.
+- `android_kernel_samsung_msm8930-common/drivers/video/msm/mipi_magna_oled_video_wvga_pt.c:654-704` defines Magna OLED resolution, timings, lane count, lane swap, clock rate, format, and frame rate.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-camera-power.c:45-84` defines Express camera GPIO mux setup.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-camera-power.c:116-206` defines Express camera rail sequencing and regulator names.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-camera.c:1152-1193` defines rear ISX012 board data.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-camera.c:1277-1318` defines front SR130PC20 board data.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-camera.c:2037-2066` defines SR130PC20 and ISX012 I2C addresses.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930.c:646-805` defines WCD9304/Sitar SLIMbus devices, IRQ/reset GPIOs, and codec supply requirements.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930.c:807-847` defines WCNSS WLAN MMIO, IRQ resources, 5-wire GPIO range, and 48 MHz XO flag.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-express.c:153-157` defines the downstream Iris FM platform device.
+- `android_device_samsung_expressltexx/system_prop.mk:37-48` records Bluetooth SMD transport and `wifi.interface=wlan0`.
+- `android_device_samsung_expressltexx/proprietary-files.txt:1-4` lists FM/Wi-Fi/Bluetooth helper binaries including `fm_qsoc_patches` and `hci_qcomm_init`.
+- `android_device_samsung_expressltexx/rootdir/init.qcom.rc:190-224` starts Bluetooth hciattach and Wi-Fi supplicant using `wlan0`/`p2p0`.
+- `android_device_samsung_expressltexx/rootdir/init.qcom.rc:234-239` starts the FM setup script.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-pmic.c:432-584` defines charger current limits, voltage/current thresholds, sense/connector resistance, and battery pdata.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-pmic.c:718-739` defines PM8921 BMS pdata.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/bms-batterydata-express.c:108-116` defines the 2000 mAh Express battery data and rbatt values.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-storage.c:41-111` defines SDCC1 eMMC and SDCC3 external-card supplies.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-storage.c:139-172` defines SDCC3 active/sleep pad drive and pull settings.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-storage.c:227-230` defines SDCC3 supported clock rates.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-storage.c:253-291` defines SDCC3 bus width, card-detect GPIO/IRQ, and active-low status.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8960-samsung-expressatt.dts:26-54` is the upstream Express ATT GPIO key reference.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8960-samsung-expressatt.dts:63-80` is the upstream Express ATT AMS/TAOS light/prox reference.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8960-samsung-expressatt.dts:123-136` is the upstream Express ATT maXTouch reference.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8960-samsung-expressatt.dts:479-488` is the upstream Express ATT PN544 NFC reference.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8960-samsung-expressatt.dts:500-518` is the upstream Express ATT BMA254/YAS532 sensor reference.
+- `linux/drivers/input/touchscreen/atmel_mxt_ts.c:3395-3396` supports `compatible = "atmel,maxtouch"` in mainline.
+- `linux/drivers/input/keyboard/tm2-touchkey.c:334-347` has mainline Cypress/Coreriver Samsung touchkey variants, but exact Cypress Express compatibility must be checked before reuse.
+- `linux/drivers/nfc/pn544/i2c.c:46-60` has mainline PN544 I2C support, not an explicit PN547 OF match.
+- `linux/drivers/iio/light/tsl2772.c:1900-1917` has mainline `tmd2772` / `amstaos,tmd2772` support.
+- `linux/drivers/iio/imu/inv_mpu6050/inv_mpu_i2c.c:176-209` supports `mpu6050` and `mpu6500` I2C compatibles in mainline.
+- `linux/drivers/iio/magnetometer/yamaha-yas530.c:1581-1595` supports `yas532` / `yamaha,yas532` in mainline.
+- `linux/drivers/gpu/drm/bridge/sii9234.c:941-960` supports `compatible = "sil,sii9234"` in mainline.
+- `linux/drivers/input/misc/pwm-vibra.c:38-59` shows mainline `pwm-vibrator` can drive a PWM plus optional enable GPIO and supply; this is the likely conceptual match for downstream `HAPTIC_PWM`, subject to PWM-provider availability on GPIO 70.
+
+Current use:
+
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:4-171` currently models board identity, simple-framebuffer, minimal PM8917 RPM USB/eMMC supplies, GSBI5 UART, SDCC1/eMMC, and USB peripheral mode only.
+- No mainline Expressltexx DT nodes currently model GPIO keys, touchscreen, touchkeys, haptics, MUIC, NFC, sensors, MHL, display panel, cameras, audio, WLAN/Bluetooth/FM, charger/BMS, battery profile, or SDCC3.
+
+Notes:
+
+- Do not copy `qcom-msm8960-samsung-expressatt.dts` electrical details blindly. It is useful for upstream style and nearby peripheral categories, but Expressltexx differs in PMIC/regulators, home-key GPIO, NFC enable GPIO, sensor set, MUIC, haptics, display panel, and cameras.
+- Good low-risk future DTS candidates after PMIC/regulator plumbing settles are GPIO keys, maXTouch, YAS532/MPU sensors, TAOS light/prox, and SDCC3. MUIC/PN547/touchkeys/haptics may need driver or binding checks before they become clean upstream nodes.
 
 ## lk2nd Continuous Splash / Simple Framebuffer
 
