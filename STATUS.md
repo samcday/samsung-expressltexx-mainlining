@@ -6,7 +6,7 @@ Detailed implementation state for Samsung Galaxy Express GT-I8730 / GT-I8730T ma
 | --- | --- | --- | --- | --- |
 | Boot chain | aboot -> lk2nd -> Linux | Working | lk2nd is the active chainloader; helpers generate Android boot images and userdata/extlinux fallback images. | Keep avoiding bootloader partition flashes unless recovery path is explicit. |
 | SoC identity | MSM8930-family Qualcomm platform | Partial | `qcom-msm8930.dtsi` exists and board DT uses `compatible = "samsung,expressltexx", "qcom,msm8930"`. | Split more MSM8930-specific bindings/drivers instead of leaning on MSM8960 compatibility. |
-| Memory | First RAM bank | Partial | Conservative `0x80000000..0x9fffffff` bank is used until lk2nd-patched memory reaches Linux reliably. | Validate full RAM layout. |
+| Memory | Bootloader-filled RAM map | Working | The SoC DTSI keeps the standard zero-size memory placeholder; vendor `aboot` ATAGS, preserved by lk2nd, fill the usable RAM ranges. | Add subsystem-specific reserved-memory regions only when consumers require them. |
 | Interrupts | QGIC2 | Working | Minimal GIC node works for UART, RPM, eMMC, USB, and keys. | Add remaining interrupt consumers as peripherals land. |
 | Timers | KPSS / MSM timer | Working | Kernel boots with timer support from the minimal SoC DTSI. | None urgent. |
 | Clocks | GCC/LCC board clocks | Partial | Uses mainline `qcom,gcc-msm8960` IDs and legacy `cxo_board`/`pxo_board` names. | Add or audit MSM8930-specific GCC support. |

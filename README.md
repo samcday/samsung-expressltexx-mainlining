@@ -48,7 +48,7 @@ build helpers for single-core fallback testing.
 | --- | --- | --- | --- |
 | Boot chain | aboot -> lk2nd -> Linux | ✅ | |
 | SoC identity | MSM8930-family Qualcomm platform | ⚠️ | Board DT is MSM8930-specific, but some bindings/drivers still lean on MSM8960-era compatibility. |
-| Memory | First RAM bank | ⚠️ | Uses a conservative first RAM bank until the full lk2nd-patched memory map is validated. |
+| Memory | Bootloader-filled RAM map | ✅ | |
 | Interrupts | QGIC2 | ✅ | |
 | Timers | KPSS / MSM timer | ✅ | |
 | Clocks | GCC/LCC board clocks | ⚠️ | Uses mainline MSM8960 GCC IDs and legacy board clock names pending an MSM8930 clock audit. |

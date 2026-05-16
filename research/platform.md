@@ -29,6 +29,35 @@ Notes:
 
 - Existing U-Boot timer/UART values were individually source-backed and reached a UART prompt, but future U-Boot work should not inherit additional MSM8960 nodes or Express ATT facts without a matching breadcrumb.
 
+## Expressltexx RAM Bank
+
+Values currently used:
+
+- The MSM8930 SoC DTSI keeps the standard Qualcomm zero-size memory placeholder at `memory@80000000`; the bootloader is expected to fill in the usable RAM map.
+- On tested hardware, vendor `aboot` passes ATAGS at `r2 = 0x80200100`; lk2nd preserves those ATAGS; Linux `CONFIG_ARM_ATAG_DTB_COMPAT` converts their `ATAG_MEM` entries into the live FDT memory node.
+- The live memory node reports usable ranges `0x80200000 0x1fe00000` and `0xa0000000 0x20000000`, so Linux uses 1022 MiB from the 1 GiB board RAM while omitting the first 2 MiB.
+- Future modem, multimedia, display, or firmware carveouts should be modeled as specific `reserved-memory` regions only when a consumer needs them.
+
+Sources:
+
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-express.c:2301-2303` passes `0x40000000` size and `0x80000000` base to downstream Samsung debug memory reporting.
+- `linux/arch/arm64/boot/dts/qcom/sdm670.dtsi:310-313` documents the modern Qualcomm pattern: `/* We expect the bootloader to fill in the size */` on a zero-size memory node.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8960.dtsi:79-81` uses the same zero-size `memory@80000000` placeholder pattern for the upstream MSM8960 family.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930.dtsi:76-79` follows that placeholder pattern for local MSM8930 bring-up.
+- lk2nd hardware log shows `Booted @ 0x80208000, r0=0x0, r1=0xe8f, r2=0x80200100` and `Found valid ATAGS with 800 bytes total`, proving vendor `aboot` supplied ATAGS to lk2nd.
+- Tested Linux `/proc/device-tree/memory@80000000/reg` decoded to `0x80200000 0x1fe00000` and `0xa0000000 0x20000000`.
+- `out/expressltexx/linux-build/.config:512-513` enables `CONFIG_ARM_ATAG_DTB_COMPAT` and `CONFIG_ARM_ATAG_DTB_COMPAT_CMDLINE_FROM_BOOTLOADER` in the local test build.
+- `linux/arch/arm/boot/compressed/atags_to_fdt.c:172-215` converts non-empty `ATAG_MEM` entries into the FDT `/memory` `reg` property.
+
+Current use:
+
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts` does not override `/memory@80000000`; it relies on the common MSM8930 placeholder and the bootloader-filled RAM map.
+
+Notes:
+
+- Earlier bring-up used a conservative 512 MiB board override while the boot path and appended-DTB handoff were still being validated. That is no longer tracked as a memory bring-up blocker.
+- Do not advertise `0x80000000..0x801fffff` as usable RAM unless a non-ATAG boot path proves it is safe; the vendor boot chain currently omits that first 2 MiB from Linux's usable map.
+
 ## MSM8960 GCC Board Clock Compatibility
 
 Values currently used:
