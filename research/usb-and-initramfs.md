@@ -53,6 +53,7 @@ Values currently used:
 - The initramfs starts `getty -L -n -l /bin/sh 115200 ttyGS0 vt100` after `/dev/ttyGS0` appears, while keeping the UART shell on `/dev/ttyMSM0` for recovery.
 - The initramfs is built from one static ARMv7 BusyBox binary. The default source is `https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-armv7l`, pinned by SHA256 `cd04052b8b6885f75f50b2a280bfcbf849d8710c8e61d369c533acf307eda064`.
 - The initramfs creates `/usr/bin` and `/usr/sbin` and runs `busybox --install -s` for `/bin`, `/sbin`, `/usr/bin`, and `/usr/sbin` before spawning the USB serial getty so applets such as `devmem` are available through normal `PATH` lookup.
+- The initramfs mounts debugfs at `/sys/kernel/debug` before gadget setup so debugfs diagnostics such as `devices_deferred` are available in the minimal shell.
 
 Sources:
 
@@ -69,10 +70,10 @@ Sources:
 Current use:
 
 - `build-dev-initrd.sh:80-113` sets the default BusyBox URL/checksum, downloads the binary if needed, and verifies it before packaging.
-- `build-dev-initrd.sh:151-159` mounts virtual filesystems, creates runtime directories including `/usr/bin` and `/usr/sbin`, and installs BusyBox applet symlinks before gadget setup.
+- `build-dev-initrd.sh:151-161` mounts virtual filesystems including debugfs, creates runtime directories including `/usr/bin` and `/usr/sbin`, and installs BusyBox applet symlinks before gadget setup.
 - `build-dev-initrd.sh:182-250` creates `/dev/ttyGS0` if needed, configures the CDC-ACM gadget, binds the first UDC, and starts the USB serial shell.
 - `build-dev-initrd.sh:280-329` includes BusyBox and base applet links required by the gadget setup and storage-debug shell.
-- `build-lk2nd-userdata.sh:216-237` and `build-lk2nd-bootable.sh:185-202` enable the kernel config options needed by local bring-up images, including `CONFIG_USB_CONFIGFS_ACM`.
+- `build-lk2nd-userdata.sh:217-243` and `build-lk2nd-bootable.sh:186-207` enable the kernel config options needed by local bring-up images, including `CONFIG_USB_CONFIGFS_ACM`.
 
 Notes:
 

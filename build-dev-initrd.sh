@@ -153,7 +153,9 @@ mount_one sysfs /sys
 mount_one devpts /dev/pts
 mount_one tmpfs /run
 mount_one tmpfs /tmp
-mkdir -p /root /mnt /usr/bin /usr/sbin /sys/kernel/config
+mkdir -p /root /mnt /usr/bin /usr/sbin /sys/kernel/config /sys/kernel/debug
+mount -t debugfs debugfs /sys/kernel/debug 2>/dev/null || \
+	log '[initrd] debugfs mount failed or is unavailable'
 mount -t configfs configfs /sys/kernel/config 2>/dev/null || \
 	log '[initrd] configfs mount failed or is unavailable'
 
