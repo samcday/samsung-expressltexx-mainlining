@@ -67,7 +67,7 @@ requirements carried in that defconfig instead of helper-side config edits.
 | eMMC | SDCC1, 8-bit non-removable | ✅ | |
 | External SD | SDCC3 | ✅ | Ext4 card mount and read/write test passed. |
 | RTC | PM8917/PM8xxx RTC | ✅ | Read/write persists across reboots; alarm IRQ delivery confirmed with `/dev/rtc0` ioctl test. |
-| Charger / fuel gauge | PM8921 charger, BMS, Samsung sec-charger | ❌ | |
+| Charger / fuel gauge | PM8921 charger, BMS, Samsung sec-charger | ⚠️ | Minimal PM8921/PM8917 charger support is wired; BMS/fuel-gauge support remains future work. |
 | Thermal | TSENS | ⚠️ | Oops is fixed; sensor reports sane temperatures that rise under load and fall when idle, but calibration still needs confidence checks. |
 | Touchscreen | Atmel maXTouch MXT224S | ❌ | Downstream Express data confirms `MXT224S` at `0x4a`, matching the high-level expressatt touchscreen class. |
 | Touchkeys | Cypress touchkey | ✅ | Newer-rev GPIO 24/25/65 wiring plus LVS5 and direct L30/L33 supplies; input events and LED 0/100 brightness work on hardware. |
@@ -90,7 +90,7 @@ requirements carried in that defconfig instead of helper-side config edits.
 1. Keep the minimal boot path stable: UART, framebuffer, RPM/PMIC, USB gadget, eMMC, external SD, keys.
 2. Add low-risk DT peripherals with existing mainline drivers: maXTouch, YAS532/MPU, TAOS light/prox.
 3. Expand PM8917 regulators only when a modeled consumer needs a rail.
-4. Leave MUIC/OTG, display, audio, cameras, and charger/BMS for focused follow-up rounds; validate TSENS on hardware next.
+4. Boot-test the first-pass charger support, then keep BMS/fuel-gauge, MUIC/OTG, display, audio, and cameras for focused follow-up rounds.
 
 ## Useful Files
 
