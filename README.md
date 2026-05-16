@@ -69,14 +69,14 @@ build helpers for single-core fallback testing.
 | RTC | PM8917/PM8xxx RTC | ✅ | Read/write persists across reboots; alarm IRQ delivery confirmed with `/dev/rtc0` ioctl test. |
 | Charger / fuel gauge | PM8921 charger, BMS, Samsung sec-charger | ❌ | |
 | Thermal | TSENS | ⚠️ | Probe currently oopses, so thermal work is descoped for now. |
-| Touchscreen | Atmel maXTouch MXT224S | ❌ | |
-| Touchkeys | Cypress touchkey | ❌ | |
+| Touchscreen | Atmel maXTouch MXT224S | ❌ | Downstream Express data confirms `MXT224S` at `0x4a`, matching the high-level expressatt touchscreen class. |
+| Touchkeys | Cypress touchkey | ❌ | Downstream registers capacitive Menu/Back touchkeys even if they are not visibly lit yet. |
 | Haptics | PWM vibrator on GPIO 70, enable GPIO 63 | ❌ | |
 | MUIC / USB switch | TSU6721 | ❌ | |
-| NFC | NXP PN547 | ❌ | |
+| NFC | NXP PN547 | ❌ | Downstream Express data uses PN547 at `0x2b`; expressatt is only a partial PN544-style reference. |
 | ALS / proximity | TAOS / AMS sensor | ❌ | |
 | Motion sensors | MPU6050/MPU6500, YAS532 | ❌ | |
-| Display panel | Magna OLED WVGA over MIPI DSI | ❌ | |
+| Display panel | Magna OLED WVGA over MIPI DSI | ❌ | Downstream selects the Magna WVGA OLED video-mode panel. |
 | MHL / HDMI | Silicon Image SII9234 | ❌ | |
 | Cameras | ISX012 rear, SR130PC20 front | ❌ | |
 | Audio | WCD9304 / Sitar over SLIMbus | ❌ | |
