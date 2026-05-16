@@ -153,9 +153,14 @@ mount_one sysfs /sys
 mount_one devpts /dev/pts
 mount_one tmpfs /run
 mount_one tmpfs /tmp
-mkdir -p /root /mnt /sys/kernel/config
+mkdir -p /root /mnt /usr/bin /usr/sbin /sys/kernel/config
 mount -t configfs configfs /sys/kernel/config 2>/dev/null || \
 	log '[initrd] configfs mount failed or is unavailable'
+
+/bin/busybox --install -s /bin 2>/dev/null || true
+/bin/busybox --install -s /sbin 2>/dev/null || true
+/bin/busybox --install -s /usr/bin 2>/dev/null || true
+/bin/busybox --install -s /usr/sbin 2>/dev/null || true
 
 create_ttygs_node() {
 	local major minor
@@ -275,6 +280,9 @@ chmod 0755 "$INIT_SCRIPT"
 cat > "$SPEC" <<EOF
 dir /bin 0755 0 0
 dir /sbin 0755 0 0
+dir /usr 0755 0 0
+dir /usr/bin 0755 0 0
+dir /usr/sbin 0755 0 0
 dir /dev 0755 0 0
 dir /proc 0755 0 0
 dir /sys 0755 0 0
