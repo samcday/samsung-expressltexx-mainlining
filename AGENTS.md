@@ -37,6 +37,34 @@ Once USB gadget support is working, prefer `./build-lk2nd-bootable.sh` and `fast
 
 First boot success criterion is simple: lk2nd starts the kernel and the kernel prints something useful on UART, even if it panics later because no full board support or rootfs exists.
 
+## Building Linux
+
+For normal bring-up builds, prefer the local helpers instead of open-coding kernel `make` commands:
+
+- `./build-lk2nd-bootable.sh` builds `linux/`, embeds the dev initramfs by default, appends the DTB to `zImage`, and writes `out/expressltexx/expressltexx-boot.img` for `fastboot boot`.
+- `./build-lk2nd-userdata.sh` builds the lk2nd/extlinux userdata fallback image and should remain available when direct fastboot boot or USB gadget testing is unavailable.
+
+The helpers deliberately enable the local bring-up config pieces that plain `qcom_defconfig` does not guarantee, including appended DTB, ATAG-to-DTB compatibility, the MSM serial console, simple framebuffer, eMMC/DML/BAM, and configfs CDC-ACM gadget support.
+
+Use ARM GCC for direct kernel commands in this workspace:
+
+```sh
+make -C linux O="$PWD/out/expressltexx/linux-build" \
+  ARCH=arm CROSS_COMPILE=arm-none-eabi- \
+  qcom/qcom-msm8930-samsung-expressltexx.dtb
+```
+
+Targeted binding checks should also force the same toolchain when they need to configure or compile kernel helper code:
+
+```sh
+make -C linux O="$PWD/out/expressltexx/linux-build" \
+  ARCH=arm CROSS_COMPILE=arm-none-eabi- \
+  DT_SCHEMA_FILES=Documentation/devicetree/bindings/rtc/qcom-pm8xxx-rtc.yaml \
+  dt_binding_check
+```
+
+Do not use bare `LLVM=1` unless the LLVM toolchain is known to satisfy the kernel's minimum version. If a plain `make ARCH=arm ...` unexpectedly selects an unsuitable LLVM toolchain or fails with a linker version error, rerun with `CROSS_COMPILE=arm-none-eabi-` or use the helper scripts.
+
 ## Primary Downstream Oracle
 
 Use these files first when extracting hardware details:
