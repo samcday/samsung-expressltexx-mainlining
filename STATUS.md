@@ -23,7 +23,7 @@ Detailed implementation state for Samsung Galaxy Express GT-I8730 / GT-I8730T ma
 | USB gadget shell | configfs CDC-ACM | Working | Static BusyBox initramfs creates ACM gadget and shell on `ttyGS0`. | Test with normal USB cable path; UART cable may route D+/D- away from USB. |
 | eMMC | SDCC1, 8-bit non-removable | Working | `mmcblk0` and GPT partitions probe; Android partitions mount manually. | Add reset/tuning/HS200 details if needed. |
 | External SD | SDCC3 | Known | Downstream GPIO, clocks, bus width, CD, and supplies are recorded. | Add SDCC3 node and PM8917 rails. |
-| RTC | PM8917/PM8xxx RTC | Known | PM8917 DTSI intentionally omits RTC for now. | Validate register/IRQ compatibility before exposing. |
+| RTC | PM8917/PM8xxx RTC | Working | PM8917 DTSI exposes the PM8921-layout RTC at `rtc@11d` with alarm IRQ 39 and `allow-set-time`; `/dev/rtc0` probes, system clock initializes from RTC, time read/write persists across reboots, and alarm IRQ delivery works with an ioctl-based wait test. | Validate alarm wake from suspend once suspend is useful. |
 | Charger / fuel gauge | PM8921 charger, BMS, Samsung sec-charger | Known | Downstream current limits and 2000 mAh battery profile are recorded. | Identify clean mainline charger/BMS path and bindings. |
 | Thermal | TSENS | Blocked | TSENS probe/oops was seen and thermal work is currently descoped. | Return later with focused TSENS driver/debug work. |
 | Touchscreen | Atmel maXTouch MXT224S | Known | Downstream I2C address, IRQ, dimensions, and rails are recorded; mainline driver exists. | Add GSBI3 I2C and touchscreen/regulator nodes. |

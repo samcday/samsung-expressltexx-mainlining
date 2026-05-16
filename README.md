@@ -30,9 +30,10 @@ Fallback userdata/extlinux image:
 
 Current successful baseline: lk2nd starts Linux, UART works, simple framebuffer
 works, PM8917 RPM regulators probe, eMMC probes, CDC-ACM gadget shell works,
-the home/volume/power keys emit input events, and both Krait CPUs come online. Local
-images now keep `CONFIG_SMP` enabled by default; use `DISABLE_SMP=1` with the
-build helpers for single-core fallback testing.
+the home/volume/power keys emit input events, PM8917 RTC read/write persists
+across reboots, and both Krait CPUs come online. Local images now keep
+`CONFIG_SMP` enabled by default; use `DISABLE_SMP=1` with the build helpers for
+single-core fallback testing.
 
 ## Status Legend
 
@@ -65,7 +66,7 @@ build helpers for single-core fallback testing.
 | USB gadget shell | configfs CDC-ACM | ✅ | |
 | eMMC | SDCC1, 8-bit non-removable | ✅ | |
 | External SD | SDCC3 | ❌ | |
-| RTC | PM8917/PM8xxx RTC | ❌ | |
+| RTC | PM8917/PM8xxx RTC | ✅ | Read/write persists across reboots; alarm IRQ delivery confirmed with `/dev/rtc0` ioctl test. |
 | Charger / fuel gauge | PM8921 charger, BMS, Samsung sec-charger | ❌ | |
 | Thermal | TSENS | ⚠️ | Probe currently oopses, so thermal work is descoped for now. |
 | Touchscreen | Atmel maXTouch MXT224S | ❌ | |

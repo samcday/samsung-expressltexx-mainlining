@@ -67,9 +67,33 @@ Current use:
 - `linux/drivers/mfd/qcom-pm8xxx.c:501-506` maps `qcom,pm8038` and `qcom,pm8917` to the PM8xxx IRQ/regmap data.
 - `linux/drivers/input/misc/pmic8xxx-pwrkey.c:432-436` maps `qcom,pm8038-pwrkey` and `qcom,pm8917-pwrkey` to the PM8921-compatible shutdown path.
 - `linux/arch/arm/boot/dts/qcom/qcom-msm8930.dtsi:98-102` adds the MSM8930 SSBI PMIC arbiter node.
-- `linux/arch/arm/boot/dts/qcom/pm8917.dtsi:5-42` adds the PM8917 SSBI PMIC node, power key, MPP controller, and GPIO controller.
+- `linux/arch/arm/boot/dts/qcom/pm8917.dtsi:5-49` adds the PM8917 SSBI PMIC node, power key, MPP controller, RTC, and GPIO controller.
 - `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:6-7` includes the MSM8930 and PM8917 DTSI files; `qcom-msm8930-samsung-expressltexx.dts:131-133` wires the PM8917 interrupt to TLMM GPIO 104.
+
+## PM8917 / PM8xxx RTC
+
+Values currently used:
+
+- The PM8917 RTC is modeled as a PM8921-layout PM8xxx RTC at base register `0x11d`, with PM8917-specific compatible and `qcom,pm8921-rtc` fallback.
+- The RTC alarm interrupt is PM8xxx block 4 bit 7, exposed through the PM8xxx IRQ domain as interrupt `39`, rising edge.
+- The RTC node sets `allow-set-time` because downstream enables `rtc_write_enable`, so mainline writes the PMIC RTC directly rather than relying on offset storage.
+
+Sources:
+
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-pmic.c:367-370` enables PM8xxx RTC writes and alarm powerup in downstream platform data.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-8930-pmic.c:834-839` attaches the shared PM8xxx RTC platform data to the PM8917 PM8921-core SSBI slave.
+- `android_kernel_samsung_msm8930-common/include/linux/mfd/pm8xxx/pm8921.h:57-58` defines the PM8921-compatible RTC alarm IRQ as block 4 bit 7; `pm8921.h:124-125` defines `PM8921_RTC_BASE = 0x11D`.
+- `android_kernel_samsung_msm8930-common/include/linux/mfd/pm8xxx/pm8038.h:55-56` defines the same RTC alarm IRQ number for the PM8038 alternate PMIC path.
+- `android_kernel_samsung_msm8930-common/arch/arm/configs/samsung_express_defconfig:547-549` enables `CONFIG_RTC_CLASS` and `CONFIG_RTC_DRV_PM8XXX` while disabling the old MSM RTC driver.
+
+Current use:
+
+- `linux/Documentation/devicetree/bindings/rtc/qcom-pm8xxx-rtc.yaml:20-24` allows `qcom,pm8917-rtc` with `qcom,pm8921-rtc` fallback.
+- `linux/arch/arm/boot/dts/qcom/pm8917.dtsi:32-37` exposes the PM8917 RTC node at `rtc@11d` with interrupt 39 and `allow-set-time`.
+- `linux/drivers/rtc/rtc-pm8xxx.c:515-523` contains the PM8921 register layout used by the fallback compatible.
 
 Notes:
 
-- The PM8917 DTSI intentionally does not add RTC, ADC, charger, or BMS nodes yet; those need separate validation of PM8917-compatible register layout, IRQs, and bindings before being exposed.
+- The PM8917 DTSI still intentionally does not add ADC, charger, or BMS nodes yet; those need separate validation of PM8917-compatible register layout, IRQs, and bindings before being exposed.
+- Hardware testing showed `rtc-pm8xxx 500000.ssbi:pmic:rtc@11d` registers as `/dev/rtc0`, initializes the system clock from RTC, and supports read/write with time persisting across reboots.
+- RTC `wakealarm` sysfs expiry was observed, and a minimal `/dev/rtc0` ioctl test confirmed alarm IRQ delivery. Suspend wake still needs validation once suspend is useful on this board.
