@@ -57,7 +57,7 @@ build helpers for single-core fallback testing.
 | UART | GSBI5 UARTDM via USB connector UART cable | ✅ | |
 | Framebuffer | lk2nd continuous splash / simple-framebuffer | ✅ | |
 | RPM | MSM8930 RPM | ✅ | |
-| Regulators | PM8917 RPM S4/L3/L4/L5/L6/L7 | ✅ | |
+| Regulators | PM8917 RPM rails plus direct L30/L33 | ⚠️ | L30/L33 are now modeled through PM8xxx SSBI direct control for touchkey testing; never add them as RPM rails. |
 | Alternate PMIC | PM8038 RPM data | ⚠️ | Build support exists, but board DT stays on PM8917 unless hardware proves PM8038. |
 | SSBI PMIC bus | PMIC arbiter at `0x00500000` | ✅ | |
 | Power key | PM8917 PM8xxx pwrkey | ✅ | |
@@ -70,7 +70,7 @@ build helpers for single-core fallback testing.
 | Charger / fuel gauge | PM8921 charger, BMS, Samsung sec-charger | ❌ | |
 | Thermal | TSENS | ⚠️ | Oops is fixed; sensor reports sane temperatures that rise under load and fall when idle, but calibration still needs confidence checks. |
 | Touchscreen | Atmel maXTouch MXT224S | ❌ | Downstream Express data confirms `MXT224S` at `0x4a`, matching the high-level expressatt touchscreen class. |
-| Touchkeys | Cypress touchkey | ❌ | Downstream registers capacitive Menu/Back touchkeys even if they are not visibly lit yet. |
+| Touchkeys | Cypress touchkey | ✅ | Newer-rev GPIO 24/25/65 wiring plus LVS5 and direct L30/L33 supplies; input events and LED 0/100 brightness work on hardware. |
 | Haptics | PWM vibrator on GPIO 70, enable GPIO 63 | ❌ | |
 | MUIC / USB switch | TSU6721 | ❌ | |
 | NFC | NXP PN547 | ❌ | Downstream Express data uses PN547 at `0x2b`; expressatt is only a partial PN544-style reference. |

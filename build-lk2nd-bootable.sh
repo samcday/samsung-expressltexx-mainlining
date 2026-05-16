@@ -191,12 +191,17 @@ if [[ "$SKIP_BUILD" != 1 ]]; then
 		-e DEVTMPFS \
 		-e DEVTMPFS_MOUNT \
 		-e FB_SIMPLE \
+		-e I2C \
+		-e I2C_GPIO \
+		-e KEYBOARD_TM2_TOUCHKEY \
+		-e LEDS_CLASS \
 		-e MMC_BLOCK \
 		-e MMC_ARMMMCI \
 		-e MMC_QCOM_DML \
 		-e PINCTRL_MSM8960 \
 		-e QCOM_BAM_DMA \
 		-e QCOM_GSBI \
+		-e REGULATOR_QCOM_PM8917 \
 		-e SERIAL_MSM \
 		-e SERIAL_MSM_CONSOLE \
 		-e USB_CONFIGFS_ACM \
