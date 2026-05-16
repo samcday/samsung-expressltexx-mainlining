@@ -9,7 +9,7 @@ Detailed implementation state for Samsung Galaxy Express GT-I8730 / GT-I8730T ma
 | Memory | Bootloader-filled RAM map | Working | The SoC DTSI keeps the standard zero-size memory placeholder; vendor `aboot` ATAGS, preserved by lk2nd, fill the usable RAM ranges. | Add subsystem-specific reserved-memory regions only when consumers require them. |
 | Interrupts | QGIC2 | Working | Minimal GIC node works for UART, RPM, eMMC, USB, and keys. | Add remaining interrupt consumers as peripherals land. |
 | Timers | KPSS / MSM timer | Working | Kernel boots with timer support from the minimal SoC DTSI. | None urgent. |
-| Clocks | GCC/LCC board clocks | Partial | Uses mainline `qcom,gcc-msm8960` IDs and legacy `cxo_board`/`pxo_board` names. | Add or audit MSM8930-specific GCC support. |
+| Clocks | GCC board clocks | Working | Current KPSS, GSBI5 UART, SDCC1/eMMC, BAM, and HSUSB1 consumers are audited against downstream MSM8930 clock data and use mainline `qcom,gcc-msm8960` IDs with legacy `cxo_board`/`pxo_board` names. | Audit MMCC/LCC multimedia, GPU, display, camera, and audio clocks separately before enabling those consumers. |
 | SMP / CPU | Dual Krait | Working | CPUs use the mainline `qcom,kpss-acc-v1` enable method with ACC/SAW phandles; CPU0 and CPU1 both come online. | Keep `DISABLE_SMP=1` as fallback if SMP regressions appear. |
 | UART | GSBI5 UARTDM via USB connector UART cable | Working | `serial0` / `ttyMSM0` console works at `115200n8`. | None urgent. |
 | Framebuffer | lk2nd continuous splash / simple-framebuffer | Working | Simple framebuffer at `0x88a00000`, 480x800 RGB888, gives `/dev/fb0`. | Replace with real MDP/DSI panel later. |

@@ -52,7 +52,7 @@ single-core fallback testing.
 | Memory | Bootloader-filled RAM map | ✅ | |
 | Interrupts | QGIC2 | ✅ | |
 | Timers | KPSS / MSM timer | ✅ | |
-| Clocks | GCC/LCC board clocks | ⚠️ | Uses mainline MSM8960 GCC IDs and legacy board clock names pending an MSM8930 clock audit. |
+| Clocks | GCC board clocks | ✅ | Current UART/eMMC/USB/KPSS GCC consumers are audited against downstream MSM8930 clock data; multimedia clocks remain future work. |
 | SMP / CPU | Dual Krait | ✅ | |
 | UART | GSBI5 UARTDM via USB connector UART cable | ✅ | |
 | Framebuffer | lk2nd continuous splash / simple-framebuffer | ✅ | |

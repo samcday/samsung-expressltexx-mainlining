@@ -1,6 +1,6 @@
 # Platform Identity, Clocks, And SoC Basics
 
-Use this file when reasoning about MSM8930 vs MSM8960 naming, board identity, generic SoC bring-up, and the temporary GCC/board-clock compatibility path.
+Use this file when reasoning about MSM8930 vs MSM8960 naming, board identity, generic SoC bring-up, and the audited GCC/board-clock compatibility path.
 
 ## Platform Identity / MSM8930 vs MSM8960 Naming
 
@@ -58,11 +58,14 @@ Notes:
 - Earlier bring-up used a conservative 512 MiB board override while the boot path and appended-DTB handoff were still being validated. That is no longer tracked as a memory bring-up blocker.
 - Do not advertise `0x80000000..0x801fffff` as usable RAM unless a non-ATAG boot path proves it is safe; the vendor boot chain currently omits that first 2 MiB from Linux's usable map.
 
-## MSM8960 GCC Board Clock Compatibility
+## MSM8930 GCC / MSM8960 Driver Compatibility
 
 Values currently used:
 
-- MSM8930 bring-up currently uses the mainline `qcom,gcc-msm8960` driver and binding IDs while MSM8930-specific GCC support is not split out.
+- MSM8930 bring-up uses the mainline `qcom,gcc-msm8960` driver and binding IDs for the core GCC subset needed by the current boot baseline.
+- This is settled for the currently enabled GCC consumers: KPSS/L2 PLL8 vote, GSBI5 UART, SDCC1/eMMC, SDCC1 BAM, and HSUSB1 peripheral mode.
+- Downstream also implements MSM8930 clocks in the shared `clock-8960.c` driver, but Express selects MSM8930-specific init data and an MSM8930-specific clock lookup table rather than plain MSM8960 init data.
+- Do not infer that future multimedia, GPU, display, camera, or audio clock work is settled by this audit. Downstream has MSM8930-specific branches for PLL15, GFX3D, MM AHB/AXI setup, and PMIC voltage handling that need focused review before adding MMCC/LCC consumers.
 - The fixed clock nodes under `/clocks` intentionally use legacy underscore node names `cxo_board`, `pxo_board`, and `sleep_clk`. `qcom_cc_register_board_clk()` looks up exact `/clocks/<path>` child names before deciding whether to register fallback clocks.
 - `cxo_board` is `19200000` Hz and `pxo_board` is `27000000` Hz, matching the fallback rates registered by `gcc-msm8960`.
 - If these node names are changed to hyphenated names, `gcc-msm8960` attempts to register duplicate `cxo_board`/`pxo_board` clocks and fails before GSBI/USB suppliers can probe.
@@ -71,6 +74,12 @@ Sources:
 
 - `linux/drivers/clk/qcom/common.c:147-184` documents and implements the legacy `/clocks/<path>` lookup before fallback board-clock registration.
 - `linux/drivers/clk/qcom/gcc-msm8960.c:3716-3729` registers fallback `cxo_board` and `pxo_board` clocks at `19200000` and `27000000` Hz.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-express.c:3832-3836` selects `msm8930_pm8917_clock_init_data` on PM8917 hardware and `msm8930_clock_init_data` otherwise.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/clock-8960.c:6038-6541` defines the MSM8930 clock lookup table, including GSBI5 UART/QUP, SDCC1, HSUSB1, PMIC arbiter, RPM message RAM, GFX3D, MDP, and related multimedia clocks.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/clock-8960.c:6970-7110` defines the MSM8930 and MSM8930/PM8917 clock init data and wraps the shared 8960 pre/post/late init paths with MSM8930 voltage setup.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/clock-8960.c:67-72` and `:1290-1352` show the GSBI UART register layout used by GSBI5; `linux/drivers/clk/qcom/gcc-msm8960.c:3248-3271` exposes the matching GSBI UART clocks used by DT.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/clock-8960.c:104-107` and `:1501-1545` show the SDCC register layout and frequency table; `linux/drivers/clk/qcom/gcc-msm8960.c:3305-3314` exposes matching SDCC clocks.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/clock-8960.c:125-129`, `:1663`, `:2420-2430`, and `:7008` show HSUSB1 clock registers and 60 MHz post-init rate; `linux/drivers/clk/qcom/gcc-msm8960.c:3317-3318` and `:3348` expose the matching USB HS1 clocks.
 - `linux/arch/arm/boot/dts/qcom/qcom-msm8960.dtsi:15-37` uses the same underscore node names for `cxo_board`, `pxo_board`, and `sleep_clk`.
 - `boot.log:224-227` captured the failure mode: `gcc-msm8960` failed to register duplicate `cxo_board`, which left `900000.clock-controller` unavailable.
 - `boot.log:398-401` captured the downstream effect: GSBI and USB deferred forever because their `900000.clock-controller` supplier was not ready.
@@ -78,7 +87,10 @@ Sources:
 Current use:
 
 - `linux/arch/arm/boot/dts/qcom/qcom-msm8930.dtsi:15-35` defines `cxo_board`, `pxo_board`, and `sleep_clk` with the exact legacy node names expected by the current GCC compatibility path.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930.dtsi:124-171` wires KPSS, CPU ACC, and GCC through `qcom,gcc-msm8960` PLL8/board clock IDs.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930.dtsi:205-293` wires the current SDCC1, GSBI5 UART, and HSUSB1 consumers to the audited GCC clock IDs.
 
 Notes:
 
-- This is a temporary compatibility detail of the current MSM8930 bring-up. Revisit it if a dedicated MSM8930 GCC driver/binding is added.
+- Keep using `qcom,gcc-msm8960` for the current core GCC subset unless hardware logs show a mismatch. A dedicated `qcom,gcc-msm8930` compatible should only be added after splitting the descriptor enough to honestly describe MSM8930-specific differences.
+- Treat LCC and future MMCC/GPU/display/audio clocks as separate audits. The board DT currently instantiates LCC only as the PLL4 provider expected by GCC, with no enabled audio consumers.
