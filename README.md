@@ -29,7 +29,9 @@ Fallback userdata/extlinux image:
 
 Current successful baseline: lk2nd starts Linux, UART works, simple framebuffer
 works, PM8917 RPM regulators probe, eMMC probes, CDC-ACM gadget shell works,
-and home/volume/power keys emit input events.
+the home/volume/power keys emit input events, and both Krait CPUs come online. Local
+images now keep `CONFIG_SMP` enabled by default; use `DISABLE_SMP=1` with the
+build helpers for single-core fallback testing.
 
 ## Status Legend
 
@@ -52,7 +54,7 @@ and home/volume/power keys emit input events.
 | Interrupts | QGIC2 | Working | Minimal GIC node works for UART, RPM, eMMC, USB, and keys. | Add remaining interrupt consumers as peripherals land. |
 | Timers | KPSS / MSM timer | Working | Kernel boots with timer support from the minimal SoC DTSI. | None urgent. |
 | Clocks | GCC/LCC board clocks | Partial | Uses mainline `qcom,gcc-msm8960` IDs and legacy `cxo_board`/`pxo_board` names. | Add or audit MSM8930-specific GCC support. |
-| SMP / CPU | Dual Krait | Partial | CPUs are described, but early bring-up keeps SMP disabled. | Re-enable and debug SMP after core peripherals are stable. |
+| SMP / CPU | Dual Krait | Working | CPUs use the mainline `qcom,kpss-acc-v1` enable method with ACC/SAW phandles; CPU0 and CPU1 both come online. | Keep `DISABLE_SMP=1` as fallback if SMP regressions appear. |
 | UART | GSBI5 UARTDM via USB connector UART cable | Working | `serial0` / `ttyMSM0` console works at `115200n8`. | None urgent. |
 | Framebuffer | lk2nd continuous splash / simple-framebuffer | Working | Simple framebuffer at `0x88a00000`, 480x800 RGB888, gives `/dev/fb0`. | Replace with real MDP/DSI panel later. |
 | RPM | MSM8930 RPM | Working | `qcom,rpm-msm8930` and minimal MSM8930 RPM resource table are present. | Extend resource table only as consumers require it. |

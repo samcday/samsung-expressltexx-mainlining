@@ -41,7 +41,8 @@ Environment overrides:
   BUSYBOX_URL        Download URL used when BUSYBOX is missing
   BUSYBOX_SHA256     Expected BusyBox SHA256; set empty to skip verification
   CMDLINE            Extlinux/boot.img cmdline template
-  DEBUG_BRINGUP=1    Force bring-up cmdline and disable SMP (default: 1)
+  DEBUG_BRINGUP=1    Force bring-up cmdline/debug options (default: 1)
+  DISABLE_SMP=1      Disable CONFIG_SMP for single-core fallback testing
   CROSS_COMPILE      ARM cross prefix, e.g. arm-none-eabi-
   LLVM               LLVM suffix/prefix for kernel builds, if not using CROSS_COMPILE
   HOSTCC             Host C compiler for dev initrd helper (default: cc)
@@ -240,7 +241,11 @@ if [[ "$SKIP_BUILD" != 1 ]]; then
 		"$CONFIG_TOOL" --file "$BUILD_DIR/.config" \
 			--set-str CMDLINE "$DEV_CMDLINE" \
 			-e CMDLINE_FORCE \
-			-e DEBUG_KERNEL \
+			-e DEBUG_KERNEL
+	fi
+
+	if [[ "${DISABLE_SMP:-0}" == 1 ]]; then
+		"$CONFIG_TOOL" --file "$BUILD_DIR/.config" \
 			-d SMP
 	fi
 
