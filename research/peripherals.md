@@ -6,7 +6,7 @@ Use this file when reasoning about board peripherals not yet fully modeled in ma
 
 Values currently known:
 
-- Current mainline `qcom-msm8930.dtsi` is still a minimal bring-up file: clocks, TLMM, RPM, SSBI, SDCC1/eMMC, GSBI5 UART, USB HS1, and CPU/timer plumbing only. Most peripherals below are downstream hardware facts, not yet modeled in Linux DT.
+- Current mainline `qcom-msm8930.dtsi` has clocks, TLMM, RPM, SSBI, SDCC1/eMMC, SDCC3/external SD, GSBI5 UART, USB HS1, TSENS, and CPU/timer plumbing. Most peripherals below are downstream hardware facts, not yet modeled in Linux DT.
 - Physical keys are active-low GPIO keys: volume up GPIO 50, volume down GPIO 81, home GPIO 35. Downstream reports volume as `KEY_VOLUMEUP`/`KEY_VOLUMEDOWN` and home as `KEY_HOMEPAGE`; home is wake-capable downstream and all use 5 ms debounce. Downstream gpiomux uses GPIO function, 8 mA drive, and pull-up while active.
 - Touchscreen is Atmel maXTouch `MXT224S` on GSBI3 I2C bus ID 3, I2C address `0x4a`, IRQ GPIO 11, logical range X `0..479`, Y `0..799`, firmware/config tag `I8730_AT_1226`. Newer Express board revs use regulators `8917_lvs6` for 1.8 V and `8917_l31` set to 3.3 V; older revs use GPIO 79 (`GPIO_TSP_D_EN`) and GPIO 80 (`GPIO_TSP_A_EN`).
 - Touchkeys are Cypress touchkeys on a bitbanged I2C bus ID 16, I2C address `0x20`, IRQ GPIO 65, keycodes `KEY_MENU` and `KEY_BACK`. Newer revs use bitbang SDA/SCL GPIO 24/25 plus `8917_lvs5` for 1.8 V, `8917_l30` set to 2.8 V, and LED regulator `8917_l33` set to 3.3 V; older revs use SDA/SCL GPIO 71/72, LDO enable GPIO 99, and LED GPIO 51.
@@ -23,6 +23,7 @@ Values currently known:
 - WLAN is Qualcomm WCNSS/Prima at downstream MMIO `0x03000000` size `0x280000`, 5-wire GPIOs 84-88, and `has_48mhz_xo = 1`. Android exposes Wi-Fi as `wlan0`; Bluetooth transport is Qualcomm SMD.
 - FM uses downstream platform device `iris_fm`. Android ships `fm_qsoc_patches` and runs `init.qcom.fm.sh` for FM setup.
 - Charger/fuel/battery path uses PM8921 charger/BMS/sec-charger configs with charging current table entries including USB `500/475` mA, AC `1000/1500` mA, CDP `1000/1500` mA, OTG `0/0`; max battery voltage `4350` mV; term current `60` mA; USB max current `1000` mA; sense resistor `10000` uOhm; connector resistance `45` mOhm. Battery data is `Samsung_8930_Express2_2000mAh_data` with FCC `2000` mAh, default rbatt `166` mOhm, capacitive rbatt `60` mOhm.
+- TSENS uses the MSM8960-family GCC/syscon register block, but Express downstream treats it as APQ8064-style TSENS with 10 sensors. Downstream slopes are `{1132, 1135, 1137, 1135, 1157, 1142, 1124, 1153, 1175, 1166}`, thermal mitigation polls sensor 9 every 250 ms, limits at 60 C with 10 C hysteresis, and TSENS calibration bytes are read from QFPROM offsets `0x404` and `0x414`. The upper/lower interrupt is `GIC_SPI 178`; APQ8064-style status/control bits live at GCC offset `0x3660`; sensors 5-9 use status registers through offset `0x3674`.
 - Mainline `samsung-expressatt` overlap is strongest for maXTouch (`atmel,maxtouch` at `0x4a`, IRQ GPIO 11), partial for GPIO keys (volume GPIOs 50/81 match but home is GPIO 40 on expressatt vs GPIO 35 on expressltexx), partial for NFC (`PN544` upstream expressatt vs downstream `PN547` expressltexx, both at `0x2b` and IRQ GPIO 106), and partial for sensors (YAS532 matches, ALS/prox is same broad AMS/TAOS family, accelerometer/gyro differs).
 
 Sources:
@@ -36,6 +37,12 @@ Sources:
 - `android_kernel_samsung_msm8930-common/arch/arm/configs/samsung_express_defconfig:387-417` enables MSM camera sensors, Iris FM, MHL, and Magna OLED panel.
 - `android_kernel_samsung_msm8930-common/arch/arm/configs/samsung_express_defconfig:491-530` enables USB host/gadget/OTG support.
 - `android_kernel_samsung_msm8930-common/arch/arm/configs/samsung_express_defconfig:572-579` enables Vibetonz, YAS532 magnetometer, TAOS optical sensor, and sensor symlink support.
+- `android_kernel_samsung_msm8930-common/arch/arm/configs/samsung_express_defconfig:363-366` enables downstream thermal support including `CONFIG_THERMAL_TSENS8960`.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-express.c:2898-2917` defines Express TSENS platform data: factor `1000`, `APQ_8064` hardware type, 10 sensors, per-sensor slopes, and thermal mitigation on sensor 9 with 60 C limit and 10 C hysteresis.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-express.c:3817-3819` calls `msm_tsens_early_init()` and `msm_thermal_init()` during board initialization.
+- `android_kernel_samsung_msm8930-common/drivers/thermal/msm8960_tsens.c:45-46` defines TSENS QFPROM calibration offsets `0x404` and `0x414`; `msm8960_tsens.c:101-134` defines config/status register offsets including APQ8064 status control at GCC offset `0x3660`; `msm8960_tsens.c:895-921` reads per-sensor calibration bytes.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/include/mach/msm_iomap-8930.h:109` defines MSM8930 QFPROM physical base `0x00700000`.
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/include/mach/irqs-8930.h:221` defines `TSENS_UPPER_LOWER_INT` as `GIC_SPI_START + 178`.
 - `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-express.c:277-453` defines TSU6721 bitbang I2C, address, IRQ, and cable callbacks.
 - `android_kernel_samsung_msm8930-common/drivers/misc/tsu6721.c:1-45` identifies the downstream driver as TSU6721 and gives device ID constants `0x0a` and rev `0x12`.
 - `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/board-express.c:496-665` defines SII9234 MHL GPIOs, regulators, reset sequence, and four I2C client addresses.
@@ -84,8 +91,11 @@ Current use:
 
 - `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:46-74` models the TLMM-backed home, volume-up, and volume-down keys; `qcom-msm8930-samsung-expressltexx.dts:145-150` adds their GPIO pin state.
 - `linux/arch/arm/boot/dts/qcom/pm8917.dtsi:13-20` models the PM8917 power key.
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930.dtsi` now models MSM8930 QFPROM at `0x00700000`, TSENS calibration cells at offsets `0x404` and `0x414`, explicit `qcom,msm8930-tsens` under GCC, and a CPU thermal zone using sensor 9.
+- `linux/drivers/thermal/qcom/tsens-8960.c` now carries MSM8930-specific 10-sensor TSENS data using the downstream slopes and APQ8064-style status-control register handling.
+- `linux/drivers/clk/qcom/gcc-msm8960.c` extends the MSM8960-family GCC regmap range through `0x3678` so TSENS sensor status registers above `0x3660` are accessible through the syscon.
 - `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts:9-217` currently models board identity, simple-framebuffer, TLMM GPIO keys, PM8917 power key, minimal PM8917 RPM USB/eMMC supplies, GSBI5 UART, SDCC1/eMMC, and USB peripheral mode only.
-- No mainline Expressltexx DT nodes currently model touchscreen, touchkeys, haptics, MUIC, NFC, sensors, MHL, display panel, cameras, audio, WLAN/Bluetooth/FM, charger/BMS, battery profile, or SDCC3.
+- No mainline Expressltexx DT nodes currently model touchscreen, touchkeys, haptics, MUIC, NFC, sensors, MHL, display panel, cameras, audio, WLAN/Bluetooth/FM, charger/BMS, or battery profile.
 
 Notes:
 
