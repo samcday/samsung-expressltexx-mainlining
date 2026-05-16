@@ -29,11 +29,11 @@ Fallback userdata/extlinux image:
 ```
 
 Current successful baseline: lk2nd starts Linux, UART works, simple framebuffer
-works, PM8917 RPM regulators probe, eMMC probes, CDC-ACM gadget shell works,
-the home/volume/power keys emit input events, PM8917 RTC read/write persists
-across reboots, and both Krait CPUs come online. Local images now keep
-`CONFIG_SMP` enabled by default; use `DISABLE_SMP=1` with the build helpers for
-single-core fallback testing.
+works, PM8917 RPM regulators probe, eMMC and external SD probe, CDC-ACM gadget
+shell works, the home/volume/power keys emit input events, PM8917 RTC
+read/write persists across reboots, and both Krait CPUs come online. Local
+images now keep `CONFIG_SMP` enabled by default; use `DISABLE_SMP=1` with the
+build helpers for single-core fallback testing.
 
 ## Status Legend
 
@@ -57,7 +57,7 @@ single-core fallback testing.
 | UART | GSBI5 UARTDM via USB connector UART cable | ✅ | |
 | Framebuffer | lk2nd continuous splash / simple-framebuffer | ✅ | |
 | RPM | MSM8930 RPM | ✅ | |
-| Regulators | PM8917 RPM S4/L3/L4/L5 | ✅ | |
+| Regulators | PM8917 RPM S4/L3/L4/L5/L6/L7 | ✅ | |
 | Alternate PMIC | PM8038 RPM data | ⚠️ | Build support exists, but board DT stays on PM8917 unless hardware proves PM8038. |
 | SSBI PMIC bus | PMIC arbiter at `0x00500000` | ✅ | |
 | Power key | PM8917 PM8xxx pwrkey | ✅ | |
@@ -65,7 +65,7 @@ single-core fallback testing.
 | USB device | HSUSB1 ChipIdea peripheral | ✅ | |
 | USB gadget shell | configfs CDC-ACM | ✅ | |
 | eMMC | SDCC1, 8-bit non-removable | ✅ | |
-| External SD | SDCC3 | ❌ | |
+| External SD | SDCC3 | ✅ | Ext4 card mount and read/write test passed. |
 | RTC | PM8917/PM8xxx RTC | ✅ | Read/write persists across reboots; alarm IRQ delivery confirmed with `/dev/rtc0` ioctl test. |
 | Charger / fuel gauge | PM8921 charger, BMS, Samsung sec-charger | ❌ | |
 | Thermal | TSENS | ⚠️ | Probe currently oopses, so thermal work is descoped for now. |
@@ -87,8 +87,8 @@ single-core fallback testing.
 
 ## Current Priorities
 
-1. Keep the minimal boot path stable: UART, framebuffer, RPM/PMIC, USB gadget, eMMC, keys.
-2. Add low-risk DT peripherals with existing mainline drivers: SDCC3, maXTouch, YAS532/MPU, TAOS light/prox.
+1. Keep the minimal boot path stable: UART, framebuffer, RPM/PMIC, USB gadget, eMMC, external SD, keys.
+2. Add low-risk DT peripherals with existing mainline drivers: maXTouch, YAS532/MPU, TAOS light/prox.
 3. Expand PM8917 regulators only when a modeled consumer needs a rail.
 4. Leave MUIC/OTG, display, audio, cameras, charger/BMS, and TSENS for focused follow-up rounds.
 

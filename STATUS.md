@@ -14,7 +14,7 @@ Detailed implementation state for Samsung Galaxy Express GT-I8730 / GT-I8730T ma
 | UART | GSBI5 UARTDM via USB connector UART cable | Working | `serial0` / `ttyMSM0` console works at `115200n8`. | None urgent. |
 | Framebuffer | lk2nd continuous splash / simple-framebuffer | Working | Simple framebuffer at `0x88a00000`, 480x800 RGB888, gives `/dev/fb0`. | Replace with real MDP/DSI panel later. |
 | RPM | MSM8930 RPM | Working | `qcom,rpm-msm8930` and minimal MSM8930 RPM resource table are present. | Extend resource table only as consumers require it. |
-| Regulators | PM8917 RPM S4/L3/L4/L5 | Working | USB/eMMC supplies are modeled; `regulator_ignore_unused` is no longer needed. | Add more PM8917 rails for sensors, display, audio, camera, etc. |
+| Regulators | PM8917 RPM S4/L3/L4/L5/L6/L7 | Working | USB, eMMC, and external SD supplies are modeled; `regulator_ignore_unused` is no longer needed. | Add more PM8917 rails for sensors, display, audio, camera, etc. |
 | Alternate PMIC | PM8038 RPM data | Builds | Minimal PM8038 regulator data exists because downstream has a PM8038 path. | Switch board DT only if hardware proves PM8038. |
 | SSBI PMIC bus | PMIC arbiter at `0x00500000` | Working | MSM8930 SSBI node exists and PM8917 probes over it. | Add more PM8917 child devices deliberately. |
 | Power key | PM8917 PM8xxx pwrkey | Working | PM8917/PM8038 bindings and driver compatibles added; power key emits `KEY_POWER`. | Upstream review of PM8917/PM8038 compatible additions. |
@@ -22,7 +22,7 @@ Detailed implementation state for Samsung Galaxy Express GT-I8730 / GT-I8730T ma
 | USB device | HSUSB1 ChipIdea peripheral | Working | `usb1` runs in peripheral mode with PM8917 PHY supplies and Express PHY init sequence. | Model MUIC/extcon/VBUS before serious OTG/host work. |
 | USB gadget shell | configfs CDC-ACM | Working | Static BusyBox initramfs creates ACM gadget and shell on `ttyGS0`. | Test with normal USB cable path; UART cable may route D+/D- away from USB. |
 | eMMC | SDCC1, 8-bit non-removable | Working | `mmcblk0` and GPT partitions probe; Android partitions mount manually. | Add reset/tuning/HS200 details if needed. |
-| External SD | SDCC3 | Known | Downstream GPIO, clocks, bus width, CD, and supplies are recorded. | Add SDCC3 node and PM8917 rails. |
+| External SD | SDCC3 | Working | `mmcblk1` probes via SDCC3 with GPIO39 card-detect and PM8917 L6/L7 supplies; ext4 card mount plus read/write testing passed. | Watch for card-detect chatter on other hardware revisions; downstream notes older revisions may need SDCC3 `vmmc` kept on. |
 | RTC | PM8917/PM8xxx RTC | Working | PM8917 DTSI exposes the PM8921-layout RTC at `rtc@11d` with alarm IRQ 39 and `allow-set-time`; `/dev/rtc0` probes, system clock initializes from RTC, time read/write persists across reboots, and alarm IRQ delivery works with an ioctl-based wait test. | Validate alarm wake from suspend once suspend is useful. |
 | Charger / fuel gauge | PM8921 charger, BMS, Samsung sec-charger | Known | Downstream current limits and 2000 mAh battery profile are recorded. | Identify clean mainline charger/BMS path and bindings. |
 | Thermal | TSENS | Blocked | TSENS probe/oops was seen and thermal work is currently descoped. | Return later with focused TSENS driver/debug work. |
