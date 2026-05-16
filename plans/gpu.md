@@ -109,4 +109,4 @@ If `/dev/dri/renderD*` appears but the GPU has not initialized yet, trigger lazy
 - Investigate mainline representation for the GFX3D footswitch/power domain if probe fails after clocks and IOMMU are described.
 - Add display/MMSS/MDP/DSI separately; do not block render-node GPU bring-up on panel enablement.
 - Once stable, remove `msm.separate_gpu_kms=1` and integrate GPU with the normal DRM display device.
-- Record any new magic values or derived behavior in `RESEARCH.md` in the same change that introduces them to DTS, driver code, or build scripts.
+- Record any new magic values or derived behavior in the relevant `research/*.md` file in the same change that introduces them to DTS, driver code, or build scripts.

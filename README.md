@@ -3,9 +3,10 @@
 Mainline bring-up workspace for Samsung Galaxy Express GT-I8730 / GT-I8730T,
 Android codename `expressltexx` / `expresslte`.
 
-The active kernel tree is `linux/` on branch `samsung-expressltexx`. Detailed
-source breadcrumbs live in `RESEARCH.md`; implementation details live in
-`STATUS.md`; this file is only the quick human status page.
+The active kernel tree is `linux/` on branch `samsung-expressltexx`.
+`RESEARCH.md` indexes detailed source breadcrumbs in `research/*.md`;
+implementation details live in `STATUS.md`; this file is only the quick human
+status page.
 
 ## Current Test Path
 
@@ -94,7 +95,7 @@ build helpers for single-core fallback testing.
 
 | File | Purpose |
 | --- | --- |
-| `RESEARCH.md` | Exact source breadcrumbs and line ranges for non-obvious values. |
+| `RESEARCH.md` | Lightweight index for detailed `research/*.md` breadcrumbs. |
 | `STATUS.md` | Detailed implementation state and next-work notes. |
 | `AGENTS.md` | Workspace-specific bring-up notes and safety constraints. |
 | `build-lk2nd-bootable.sh` | Normal direct `fastboot boot` image builder. |

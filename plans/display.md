@@ -130,4 +130,4 @@ If `/dev/dri/card0` appears but the panel is dark, keep collecting logs before c
 - Add backlight/brightness support after first light, likely starting with DCS brightness or static gamma levels rather than downstream smart dimming.
 - Add optional ACL/ELVSS/gamma/MTP support only after basic scanout is stable.
 - Remove `msm.separate_gpu_kms=1` once GPU and KMS can coexist in normal DRM component binding.
-- Record any new magic values or derived behavior in `RESEARCH.md` in the same change that introduces them to DTS, driver code, or build scripts.
+- Record any new magic values or derived behavior in the relevant `research/*.md` file in the same change that introduces them to DTS, driver code, or build scripts.

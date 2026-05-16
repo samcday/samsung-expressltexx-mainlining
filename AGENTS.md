@@ -19,7 +19,7 @@ Downstream naming is confusing. Android uses `TARGET_BOARD_PLATFORM := msm8960`,
 
 The downstream kernel is Linux 3.4.113 and this board is not described with devicetree there. Hardware details mostly live in old ARM board files, GPIO headers, defconfigs, and Android makefiles.
 
-Mainline currently has `arch/arm/boot/dts/qcom/qcom-msm8960.dtsi` and `arch/arm/boot/dts/qcom/qcom-msm8960-samsung-expressatt.dts`, but no `qcom-msm8930.dtsi`. Use `expressatt` only as a style/comparison reference. Do not copy its GPIOs, regulators, or peripherals blindly.
+Mainline work in this workspace has a local `arch/arm/boot/dts/qcom/qcom-msm8930.dtsi` and `qcom-msm8930-samsung-expressltexx.dts`. Use `expressatt` only as a style/comparison reference. Do not copy its GPIOs, regulators, or peripherals blindly.
 
 ## Boot And UART
 
@@ -76,6 +76,21 @@ Relevant Android facts:
 - Wi-Fi is Qualcomm WCNSS/Prima, exposed as `qcwcn` / `wlan` downstream.
 - Bluetooth transport is Qualcomm SMD.
 
+## Research Map
+
+Use `RESEARCH.md` as the lightweight index. Before reasoning about a subsystem, consult the relevant topic file instead of loading all breadcrumbs into context:
+
+| When Reasoning About | Consult |
+| --- | --- |
+| MSM8930 vs MSM8960 identity, SoC naming, or GCC board-clock compatibility | `research/platform.md` |
+| RPM, PM8917/PM8038 regulators, SSBI PMIC, or PM8xxx power key | `research/pmic-rpm-regulators.md` |
+| HSUSB1, integrated PHY, CDC-ACM gadget shell, or static BusyBox initramfs | `research/usb-and-initramfs.md` |
+| SDCC1/eMMC, SDCC3/external SD, storage supplies, DML, or BAM | `research/storage.md` |
+| Touchscreen, touchkeys, haptics, MUIC, NFC, sensors, MHL, display panel, cameras, audio, WLAN/Bluetooth/FM, charger/BMS, or Express ATT comparisons | `research/peripherals.md` |
+| lk2nd continuous splash, simple-framebuffer, framebuffer format, or display reservation | `research/framebuffer.md` |
+| lk2nd boot image layout, direct `fastboot boot`, userdata/extlinux fallback, or U-Boot boot image wrapper | `research/boot-lk2nd.md` |
+| UARTDM, GSBI5, MSM timer/DGT, early U-Boot support, or U-Boot RAM assumptions | `research/uart-timer-uboot.md` |
+
 ## Known Hardware Clues
 
 - Buttons: volume up, volume down, and home are in `express-gpio.h` and `board-express.c`.
@@ -102,9 +117,13 @@ Variant downstream defconfig is `msm8930_express_eur_lte_defconfig`.
 
 Prefer small, testable mainline changes. For early bring-up, prioritize UART, memory, timer/interrupts, and a panic/log path before adding peripherals.
 
+Before making changes under `linux/`, read any kernel-tree coding-agent guidance present in that checkout, especially files named `coding_agents.rst` or similarly scoped documentation under `linux/Documentation/`. Re-check this after rebases or kernel updates because those docs may appear later even if absent in the current tree.
+
 When extracting hardware data from downstream, cite the exact source file and line range in notes or commit messages. Avoid copying downstream code structure into mainline; translate board-file facts into devicetree and existing mainline bindings.
 
-Keep `RESEARCH.md` up to date while working. Whenever adding or changing a non-obvious register address, register offset, bit value, derived clock, boot-image layout value, GPIO number, regulator fact, or similar magic value, add a concise breadcrumb there with exact source paths and line ranges, the interpretation, and the current mainline/U-Boot use site. Do this in the same change that introduces or relies on the value.
+Keep `STATUS.md` and `research/*.md` up to date while working on enablement or bring-up duties. Whenever adding or changing a non-obvious register address, register offset, bit value, derived clock, boot-image layout value, GPIO number, regulator fact, source-backed hardware fact, or similar magic value, add a concise breadcrumb to the relevant `research/*.md` file with exact source paths and line ranges, the interpretation, and the current mainline/U-Boot use site. Do this in the same change that introduces or relies on the value.
+
+When implementation state changes, update `STATUS.md` in the same change. If the quick user-facing status changes, update `README.md` too, but keep detailed next-work notes in `STATUS.md`.
 
 Do not assume `samsung-expressatt` and `samsung-expressltexx` are electrically identical. Use expressatt only to understand what a nearby Samsung Qualcomm board looks like in mainline.
 
