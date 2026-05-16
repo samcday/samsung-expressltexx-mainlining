@@ -33,19 +33,14 @@ Environment overrides:
   OUT_DIR            Output directory (default: ./out/expressltexx)
   BUILD_DIR          Kernel build directory (default: $OUT_DIR/linux-build)
   IMAGE              Output boot image path (default: $OUT_DIR/expressltexx-boot.img)
-  DEFCONFIG          Kernel defconfig (default: qcom_defconfig)
   DTB                DTB basename (default: qcom-msm8930-samsung-expressltexx.dtb)
   INITRAMFS          Initramfs path, "dev"/"minimal", or "none" (default: dev)
-  BUILTIN_INITRAMFS=0 Keep INITRAMFS external in the Android boot image
-                     (default: 1, embedded and forced)
   DEV_INITRD_SCRIPT  Dev initrd builder (default: ./build-dev-initrd.sh)
   BUSYBOX            Static ARM BusyBox binary for dev initrd
                      (default: $OUT_DIR/cache/busybox-armv7l)
   BUSYBOX_URL        Download URL used when BUSYBOX is missing
   BUSYBOX_SHA256     Expected BusyBox SHA256; set empty to skip verification
   CMDLINE            Android boot.img/kernel cmdline
-  DEBUG_BRINGUP=1    Force bring-up cmdline/debug options (default: 1)
-  DISABLE_SMP=1      Disable CONFIG_SMP for single-core fallback testing
   CROSS_COMPILE      ARM cross prefix, e.g. arm-none-eabi-
   LLVM               LLVM suffix/prefix for kernel builds, if not using CROSS_COMPILE
   HOSTCC             Host C compiler for dev initrd helper (default: cc)
@@ -79,12 +74,9 @@ LINUX_DIR=${LINUX_DIR:-"$ROOT_DIR/linux"}
 OUT_DIR=${OUT_DIR:-"$ROOT_DIR/out/expressltexx"}
 BUILD_DIR=${BUILD_DIR:-"$OUT_DIR/linux-build"}
 IMAGE=${IMAGE:-"$OUT_DIR/expressltexx-boot.img"}
-DEFCONFIG=${DEFCONFIG:-qcom_defconfig}
 DTB=${DTB:-qcom-msm8930-samsung-expressltexx.dtb}
 INITRAMFS=${INITRAMFS:-dev}
 JOBS=${JOBS:-$(nproc)}
-DEBUG_BRINGUP=${DEBUG_BRINGUP:-1}
-BUILTIN_INITRAMFS=${BUILTIN_INITRAMFS:-1}
 SKIP_BUILD=${SKIP_BUILD:-0}
 HOSTCC=${HOSTCC:-cc}
 CACHE_DIR=${CACHE_DIR:-"$OUT_DIR/cache"}
@@ -136,13 +128,6 @@ if [[ -n "$INITRAMFS" && ! -f "$INITRAMFS" ]]; then
 	die "initramfs not found: $INITRAMFS"
 fi
 
-BUILTIN_INITRAMFS_SOURCE=
-if [[ "$BUILTIN_INITRAMFS" == 1 ]]; then
-	[[ -n "$INITRAMFS" ]] || die 'BUILTIN_INITRAMFS=1 requires an initramfs'
-	BUILTIN_INITRAMFS_SOURCE="$OUT_DIR/initramfs.cpio.gz"
-	ln -sfn "$INITRAMFS" "$BUILTIN_INITRAMFS_SOURCE"
-fi
-
 MAKE_ARGS=(ARCH=arm)
 TOOLCHAIN_DESC='none'
 
@@ -177,55 +162,8 @@ fi
 
 if [[ "$SKIP_BUILD" != 1 ]]; then
 	printf '==> Using %s\n' "$TOOLCHAIN_DESC"
-	printf '==> Configuring %s\n' "$DEFCONFIG"
-	make -C "$LINUX_DIR" O="$BUILD_DIR" "${MAKE_ARGS[@]}" "$DEFCONFIG"
-
-	CONFIG_TOOL="$LINUX_DIR/scripts/config"
-	[[ -x "$CONFIG_TOOL" ]] || die "kernel config helper not executable: $CONFIG_TOOL"
-
-	"$CONFIG_TOOL" --file "$BUILD_DIR/.config" \
-		-e ARM_APPENDED_DTB \
-		-e ARM_ATAG_DTB_COMPAT \
-		-e ARCH_QCOM_RESERVE_SMEM \
-		-e BLK_DEV_INITRD \
-		-e DEVTMPFS \
-		-e DEVTMPFS_MOUNT \
-		-e FB_SIMPLE \
-		-e I2C \
-		-e I2C_GPIO \
-		-e KEYBOARD_TM2_TOUCHKEY \
-		-e LEDS_CLASS \
-		-e MMC_BLOCK \
-		-e MMC_ARMMMCI \
-		-e MMC_QCOM_DML \
-		-e PINCTRL_MSM8960 \
-		-e QCOM_BAM_DMA \
-		-e QCOM_GSBI \
-		-e REGULATOR_QCOM_PM8917 \
-		-e SERIAL_MSM \
-		-e SERIAL_MSM_CONSOLE \
-		-e USB_CONFIGFS_ACM \
-		-e MSM_MMCC_8960
-
-	if [[ "$DEBUG_BRINGUP" == 1 ]]; then
-		"$CONFIG_TOOL" --file "$BUILD_DIR/.config" \
-			--set-str CMDLINE "$CMDLINE" \
-			-e CMDLINE_FORCE \
-			-e DEBUG_KERNEL
-	fi
-
-	if [[ "${DISABLE_SMP:-0}" == 1 ]]; then
-		"$CONFIG_TOOL" --file "$BUILD_DIR/.config" \
-			-d SMP
-	fi
-
-	if [[ -n "$BUILTIN_INITRAMFS_SOURCE" ]]; then
-		"$CONFIG_TOOL" --file "$BUILD_DIR/.config" \
-			--set-str INITRAMFS_SOURCE "$BUILTIN_INITRAMFS_SOURCE" \
-			-e INITRAMFS_FORCE
-	fi
-
-	make -C "$LINUX_DIR" O="$BUILD_DIR" "${MAKE_ARGS[@]}" olddefconfig
+	printf '==> Configuring qcom_defconfig\n'
+	make -C "$LINUX_DIR" O="$BUILD_DIR" "${MAKE_ARGS[@]}" qcom_defconfig
 
 	printf '==> Building zImage and dtbs\n'
 	make -C "$LINUX_DIR" O="$BUILD_DIR" "${MAKE_ARGS[@]}" -j"$JOBS" zImage dtbs

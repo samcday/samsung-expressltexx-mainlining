@@ -30,19 +30,15 @@ Environment overrides:
   OUT_DIR            Output directory (default: ./out/expressltexx)
   BUILD_DIR          Kernel build directory (default: $OUT_DIR/linux-build)
   IMAGE              Output userdata image path (default: $OUT_DIR/expressltexx-userdata.img)
-  DEFCONFIG          Kernel defconfig (default: qcom_defconfig)
   DTB                DTB basename (default: qcom-msm8930-samsung-expressltexx.dtb)
   INITRAMFS          Optional initramfs path; use "dev"/"minimal" for ./build-dev-initrd.sh
                      or "none" to omit it
-  BUILTIN_INITRAMFS=1 Embed INITRAMFS into the kernel image (default: 0)
   DEV_INITRD_SCRIPT  Dev initrd builder (default: ./build-dev-initrd.sh)
   BUSYBOX            Static ARM BusyBox binary for dev initrd
                      (default: $OUT_DIR/cache/busybox-armv7l)
   BUSYBOX_URL        Download URL used when BUSYBOX is missing
   BUSYBOX_SHA256     Expected BusyBox SHA256; set empty to skip verification
   CMDLINE            Extlinux/boot.img cmdline template
-  DEBUG_BRINGUP=1    Force bring-up cmdline/debug options (default: 1)
-  DISABLE_SMP=1      Disable CONFIG_SMP for single-core fallback testing
   CROSS_COMPILE      ARM cross prefix, e.g. arm-none-eabi-
   LLVM               LLVM suffix/prefix for kernel builds, if not using CROSS_COMPILE
   HOSTCC             Host C compiler for dev initrd helper (default: cc)
@@ -80,15 +76,12 @@ LINUX_DIR=${LINUX_DIR:-"$ROOT_DIR/linux"}
 OUT_DIR=${OUT_DIR:-"$ROOT_DIR/out/expressltexx"}
 BUILD_DIR=${BUILD_DIR:-"$OUT_DIR/linux-build"}
 IMAGE=${IMAGE:-"$OUT_DIR/expressltexx-userdata.img"}
-DEFCONFIG=${DEFCONFIG:-qcom_defconfig}
 DTB=${DTB:-qcom-msm8930-samsung-expressltexx.dtb}
 INITRAMFS=${INITRAMFS:-}
 JOBS=${JOBS:-$(nproc)}
 BOOT_SIZE_MIB=${BOOT_SIZE_MIB:-48}
 ROOT_SIZE_MIB=${ROOT_SIZE_MIB:-16}
 INCLUDE_BOOTIMG=${INCLUDE_BOOTIMG:-0}
-DEBUG_BRINGUP=${DEBUG_BRINGUP:-1}
-BUILTIN_INITRAMFS=${BUILTIN_INITRAMFS:-0}
 SPARSE=${SPARSE:-1}
 SKIP_BUILD=${SKIP_BUILD:-0}
 KEEP_WORK=${KEEP_WORK:-0}
@@ -167,13 +160,6 @@ if [[ -n "$INITRAMFS" && ! -f "$INITRAMFS" ]]; then
 	die "initramfs not found: $INITRAMFS"
 fi
 
-BUILTIN_INITRAMFS_SOURCE=
-if [[ "$BUILTIN_INITRAMFS" == 1 ]]; then
-	[[ -n "$INITRAMFS" ]] || die 'BUILTIN_INITRAMFS=1 requires INITRAMFS=path or INITRAMFS=dev'
-	BUILTIN_INITRAMFS_SOURCE="$OUT_DIR/initramfs.cpio.gz"
-	ln -sfn "$INITRAMFS" "$BUILTIN_INITRAMFS_SOURCE"
-fi
-
 MAKE_ARGS=(ARCH=arm)
 TOOLCHAIN_DESC='none'
 
@@ -208,54 +194,8 @@ fi
 
 if [[ "$SKIP_BUILD" != 1 ]]; then
 	printf '==> Using %s\n' "$TOOLCHAIN_DESC"
-	printf '==> Configuring %s\n' "$DEFCONFIG"
-	make -C "$LINUX_DIR" O="$BUILD_DIR" "${MAKE_ARGS[@]}" "$DEFCONFIG"
-
-	CONFIG_TOOL="$LINUX_DIR/scripts/config"
-	[[ -x "$CONFIG_TOOL" ]] || die "kernel config helper not executable: $CONFIG_TOOL"
-
-	"$CONFIG_TOOL" --file "$BUILD_DIR/.config" \
-		-e ARM_APPENDED_DTB \
-		-e ARM_ATAG_DTB_COMPAT \
-		-e ARCH_QCOM_RESERVE_SMEM \
-		-e BLK_DEV_INITRD \
-		-e DEVTMPFS \
-		-e DEVTMPFS_MOUNT \
-		-e EFI_PARTITION \
-		-e EXT2_FS \
-		-e EXT4_FS \
-		-e FB_SIMPLE \
-		-e MMC_BLOCK \
-		-e MMC_ARMMMCI \
-		-e MMC_QCOM_DML \
-		-e PARTITION_ADVANCED \
-		-e PINCTRL_MSM8960 \
-		-e QCOM_BAM_DMA \
-		-e QCOM_GSBI \
-		-e SERIAL_MSM \
-		-e SERIAL_MSM_CONSOLE \
-		-e USB_CONFIGFS_ACM \
-		-e MSM_MMCC_8960
-
-	if [[ "$DEBUG_BRINGUP" == 1 ]]; then
-		"$CONFIG_TOOL" --file "$BUILD_DIR/.config" \
-			--set-str CMDLINE "$DEV_CMDLINE" \
-			-e CMDLINE_FORCE \
-			-e DEBUG_KERNEL
-	fi
-
-	if [[ "${DISABLE_SMP:-0}" == 1 ]]; then
-		"$CONFIG_TOOL" --file "$BUILD_DIR/.config" \
-			-d SMP
-	fi
-
-	if [[ -n "$BUILTIN_INITRAMFS_SOURCE" ]]; then
-		"$CONFIG_TOOL" --file "$BUILD_DIR/.config" \
-			--set-str INITRAMFS_SOURCE "$BUILTIN_INITRAMFS_SOURCE" \
-			-e INITRAMFS_FORCE
-	fi
-
-	make -C "$LINUX_DIR" O="$BUILD_DIR" "${MAKE_ARGS[@]}" olddefconfig
+	printf '==> Configuring qcom_defconfig\n'
+	make -C "$LINUX_DIR" O="$BUILD_DIR" "${MAKE_ARGS[@]}" qcom_defconfig
 
 	printf '==> Building zImage and dtbs\n'
 	make -C "$LINUX_DIR" O="$BUILD_DIR" "${MAKE_ARGS[@]}" -j"$JOBS" zImage dtbs
@@ -383,7 +323,7 @@ printf '\n==> Wrote %s\n' "$IMAGE"
 printf '    boot UUID: %s\n' "$BOOT_UUID"
 printf '    root UUID: %s\n' "$ROOT_UUID"
 printf '    DTB:       %s\n' "$DTB"
-printf '    cmdline:   %s\n' "$CMDLINE"
+printf '    extlinux:  %s\n' "$CMDLINE"
 printf '\nFlash with:\n'
 if [[ "$SPARSE" == 1 ]]; then
 	printf '  fastboot flash userdata %q\n' "$SPARSE_IMAGE"

@@ -41,10 +41,10 @@ First boot success criterion is simple: lk2nd starts the kernel and the kernel p
 
 For normal bring-up builds, prefer the local helpers instead of open-coding kernel `make` commands:
 
-- `./build-lk2nd-bootable.sh` builds `linux/`, embeds the dev initramfs by default, appends the DTB to `zImage`, and writes `out/expressltexx/expressltexx-boot.img` for `fastboot boot`.
+- `./build-lk2nd-bootable.sh` builds `linux/`, passes the dev initramfs as the boot image ramdisk by default, appends the DTB to `zImage`, and writes `out/expressltexx/expressltexx-boot.img` for `fastboot boot`.
 - `./build-lk2nd-userdata.sh` builds the lk2nd/extlinux userdata fallback image and should remain available when direct fastboot boot or USB gadget testing is unavailable.
 
-The helpers deliberately enable the local bring-up config pieces that plain `qcom_defconfig` does not guarantee, including appended DTB, ATAG-to-DTB compatibility, the MSM serial console, simple framebuffer, eMMC/DML/BAM, and configfs CDC-ACM gadget support.
+The helpers configure `qcom_defconfig` directly. Keep Express bring-up requirements in `linux/arch/arm/configs/qcom_defconfig` rather than adding helper-side Kconfig edits.
 
 Use ARM GCC for direct kernel commands in this workspace:
 

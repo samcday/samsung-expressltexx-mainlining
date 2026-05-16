@@ -32,8 +32,8 @@ Current successful baseline: lk2nd starts Linux, UART works, simple framebuffer
 works, PM8917 RPM regulators probe, eMMC and external SD probe, CDC-ACM gadget
 shell works, the home/volume/power keys emit input events, PM8917 RTC
 read/write persists across reboots, and both Krait CPUs come online. Local
-images now keep `CONFIG_SMP` enabled by default; use `DISABLE_SMP=1` with the
-build helpers for single-core fallback testing.
+kernel builds use upstream `qcom_defconfig` directly, with Express bring-up
+requirements carried in that defconfig instead of helper-side config edits.
 
 ## Status Legend
 
