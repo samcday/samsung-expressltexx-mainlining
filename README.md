@@ -68,7 +68,7 @@ build helpers for single-core fallback testing.
 | External SD | SDCC3 | ✅ | Ext4 card mount and read/write test passed. |
 | RTC | PM8917/PM8xxx RTC | ✅ | Read/write persists across reboots; alarm IRQ delivery confirmed with `/dev/rtc0` ioctl test. |
 | Charger / fuel gauge | PM8921 charger, BMS, Samsung sec-charger | ❌ | |
-| Thermal | TSENS | ⚠️ | Probe currently oopses, so thermal work is descoped for now. |
+| Thermal | TSENS | ⚠️ | Oops is fixed; sensor reports sane temperatures that rise under load and fall when idle, but calibration still needs confidence checks. |
 | Touchscreen | Atmel maXTouch MXT224S | ❌ | Downstream Express data confirms `MXT224S` at `0x4a`, matching the high-level expressatt touchscreen class. |
 | Touchkeys | Cypress touchkey | ❌ | Downstream registers capacitive Menu/Back touchkeys even if they are not visibly lit yet. |
 | Haptics | PWM vibrator on GPIO 70, enable GPIO 63 | ❌ | |
@@ -90,7 +90,7 @@ build helpers for single-core fallback testing.
 1. Keep the minimal boot path stable: UART, framebuffer, RPM/PMIC, USB gadget, eMMC, external SD, keys.
 2. Add low-risk DT peripherals with existing mainline drivers: maXTouch, YAS532/MPU, TAOS light/prox.
 3. Expand PM8917 regulators only when a modeled consumer needs a rail.
-4. Leave MUIC/OTG, display, audio, cameras, charger/BMS, and TSENS for focused follow-up rounds.
+4. Leave MUIC/OTG, display, audio, cameras, and charger/BMS for focused follow-up rounds; validate TSENS on hardware next.
 
 ## Useful Files
 
