@@ -164,6 +164,50 @@ mount -t configfs configfs /sys/kernel/config 2>/dev/null || \
 /bin/busybox --install -s /usr/bin 2>/dev/null || true
 /bin/busybox --install -s /usr/sbin 2>/dev/null || true
 
+stage_touchscreen_firmware() {
+	# Fill these in after locating maXTouch config on the Android partitions.
+	# The atmel_mxt_ts driver requests this as /lib/firmware/maxtouch.cfg.
+	local fw_dev=/dev/mmcblk0pN
+	local fw_src=/placeholder/path/to/maxtouch.cfg
+	local fw_mount=/mnt/android-firmware
+	local fw_dst=/lib/firmware/maxtouch.cfg
+
+	case "$fw_dev:$fw_src" in
+		*/mmcblk0pN:*|*:*/placeholder/*)
+			log '[initrd] touchscreen firmware staging placeholder is not configured'
+			return
+			;;
+	esac
+
+	for i in 1 2 3 4 5; do
+		[ -b "$fw_dev" ] && break
+		log "[initrd] waiting for touchscreen firmware partition $fw_dev ($i/5)"
+		sleep 1
+	done
+
+	if [ ! -b "$fw_dev" ]; then
+		log "[initrd] touchscreen firmware partition missing: $fw_dev"
+		return
+	fi
+
+	mkdir -p "$fw_mount" /lib/firmware
+	if ! mount -o ro "$fw_dev" "$fw_mount" 2>/dev/null; then
+		log "[initrd] failed to mount touchscreen firmware partition $fw_dev"
+		return
+	fi
+
+	if [ -r "$fw_mount/$fw_src" ]; then
+		cp "$fw_mount/$fw_src" "$fw_dst" && \
+			log "[initrd] staged touchscreen firmware from $fw_dev:$fw_src"
+	else
+		log "[initrd] touchscreen firmware missing at $fw_dev:$fw_src"
+	fi
+
+	umount "$fw_mount" 2>/dev/null || true
+}
+
+stage_touchscreen_firmware
+
 create_ttygs_node() {
 	local major minor
 
@@ -293,6 +337,8 @@ dir /tmp 01777 0 0
 dir /root 0700 0 0
 dir /mnt 0755 0 0
 dir /etc 0755 0 0
+dir /lib 0755 0 0
+dir /lib/firmware 0755 0 0
 dir /var 0755 0 0
 dir /var/run 0755 0 0
 file /init $INIT_SCRIPT 0755 0 0

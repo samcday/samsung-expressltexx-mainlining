@@ -57,7 +57,7 @@ requirements carried in that defconfig instead of helper-side config edits.
 | UART | GSBI5 UARTDM via USB connector UART cable | ✅ | |
 | Framebuffer | lk2nd continuous splash / simple-framebuffer | ✅ | |
 | RPM | MSM8930 RPM | ✅ | |
-| Regulators | PM8917 RPM rails plus direct L30/L33 | ⚠️ | L30/L33 are now modeled through PM8xxx SSBI direct control for touchkey testing; never add them as RPM rails. |
+| Regulators | PM8917 RPM rails plus direct L30/L31/L33 | ⚠️ | L30/L31/L33 are modeled through PM8xxx SSBI direct control; never add them as RPM rails. |
 | Alternate PMIC | PM8038 RPM data | ⚠️ | Build support exists, but board DT stays on PM8917 unless hardware proves PM8038. |
 | SSBI PMIC bus | PMIC arbiter at `0x00500000` | ✅ | |
 | Power key | PM8917 PM8xxx pwrkey | ✅ | |
@@ -69,7 +69,7 @@ requirements carried in that defconfig instead of helper-side config edits.
 | RTC | PM8917/PM8xxx RTC | ✅ | Read/write persists across reboots; alarm IRQ delivery confirmed with `/dev/rtc0` ioctl test. |
 | Charger / fuel gauge | PM8921 charger, BMS, Samsung sec-charger | ⚠️ | Minimal PM8921/PM8917 charger support is wired; BMS/fuel-gauge support remains future work. |
 | Thermal | TSENS | ⚠️ | Oops is fixed; sensor reports sane temperatures that rise under load and fall when idle, but calibration still needs confidence checks. |
-| Touchscreen | Atmel maXTouch MXT224S | ❌ | Downstream Express data confirms `MXT224S` at `0x4a`, matching the high-level expressatt touchscreen class. |
+| Touchscreen | Atmel maXTouch MXT224S | ✅ | GSBI3 I2C, RPM LVS6, and direct PM8xxx L31 are enough for maXTouch probe and touch events. |
 | Touchkeys | Cypress touchkey | ✅ | Newer-rev GPIO 24/25/65 wiring plus LVS5 and direct L30/L33 supplies; input events and LED 0/100 brightness work on hardware. |
 | Haptics | PWM vibrator on GPIO 70, enable GPIO 63 | ❌ | |
 | MUIC / USB switch | TSU6721 | ❌ | |
