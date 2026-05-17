@@ -28,6 +28,12 @@ Fallback userdata/extlinux image:
 ./build-lk2nd-userdata.sh
 ```
 
+postmarketOS envkernel round trip from the local `linux/` tree:
+
+```sh
+./build-pmos-envkernel.sh
+```
+
 Current successful baseline: lk2nd starts Linux, UART works, simple framebuffer
 works, PM8917 RPM regulators probe, eMMC and external SD probe, CDC-ACM gadget
 shell works, the home/volume/power keys emit input events, PM8917 RTC
@@ -102,6 +108,8 @@ requirements carried in that defconfig instead of helper-side config edits.
 | `build-lk2nd-bootable.sh` | Normal direct `fastboot boot` image builder. |
 | `build-lk2nd-userdata.sh` | lk2nd/extlinux userdata fallback image builder. |
 | `build-dev-initrd.sh` | Static BusyBox initramfs and CDC-ACM gadget setup. |
+| `build-pmos-envkernel.sh` | Local Linux build plus `pmbootstrap build --envkernel` round-trip helper. |
+| `pmaports/` | postmarketOS packaging checkout for `device-samsung-expressltexx` and the shared MSM8930 kernel aport. |
 | `linux/arch/arm/boot/dts/qcom/qcom-msm8930.dtsi` | Minimal MSM8930 SoC description. |
 | `linux/arch/arm/boot/dts/qcom/qcom-msm8930-samsung-expressltexx.dts` | Expressltexx board description. |
 | `linux/arch/arm/boot/dts/qcom/pm8917.dtsi` | PM8917 SSBI PMIC description. |

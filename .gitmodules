@@ -16,3 +16,6 @@
 [submodule "u-boot"]
 	path = u-boot
 	url = https://github.com/samcday/u-boot.git
+[submodule "pmaports"]
+	path = pmaports
+	url = git@gitlab.postmarketos.org:samcday/pmaports.git
