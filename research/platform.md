@@ -29,6 +29,30 @@ Notes:
 
 - Existing U-Boot timer/UART values were individually source-backed and reached a UART prompt, but future U-Boot work should not inherit additional MSM8960 nodes or Express ATT facts without a matching breadcrumb.
 
+## Qualcomm SMEM / SoCinfo
+
+Values currently used:
+
+- Mainline SMEM is modeled at `0x80000000` size `0x200000`, matching the low 2 MiB region omitted from the tested usable RAM map.
+- SMEM locking uses the older SFPB mutex block at `0x01200600` size `0x84` and lock index 3, matching the mainline `qcom,smem` binding example for Qualcomm SMEM locking.
+- With `CONFIG_QCOM_SMEM=y`, `CONFIG_HWSPINLOCK_QCOM=y`, and `CONFIG_QCOM_SOCINFO=y`, the SMEM driver should register `qcom-socinfo`, which reads `SMEM_HW_SW_BUILD_ID` and exposes `/sys/devices/soc0/soc_id` for on-device SoC identity checks.
+
+Sources:
+
+- `android_kernel_samsung_msm8930-common/arch/arm/mach-msm/remote_spinlock.c:29-32` selects the SFPB remote spinlock path and defines `MSM_SFPB_MUTEX_REG_BASE 0x01200600` and size `(33 * 4)`.
+- `linux/Documentation/devicetree/bindings/hwlock/qcom-hwspinlock.yaml:16-44` documents `qcom,sfpb-mutex`, `reg`, and `#hwlock-cells`.
+- `linux/Documentation/devicetree/bindings/soc/qcom/qcom,smem.yaml:18-48` requires `compatible = "qcom,smem"` plus `hwlocks` and either inline `reg`/`no-map` or a `memory-region` phandle.
+- `linux/drivers/soc/qcom/smem.c:1237-1243` registers the `qcom-socinfo` platform device after SMEM probes.
+- `linux/drivers/soc/qcom/socinfo.c:871-918` reads `SMEM_HW_SW_BUILD_ID`, registers `soc0`, and exposes the SMEM SoC ID through the SoC bus attributes.
+
+Current use:
+
+- `linux/arch/arm/boot/dts/qcom/qcom-msm8930.dtsi` marks the SMEM reserved-memory node as `qcom,smem`, wires it to `&sfpb_mutex 3`, and describes `sfpb_mutex: hwlock@1200600`.
+
+Notes:
+
+- Use `/sys/devices/soc0/soc_id` to distinguish firmware-reported MSM8930-family IDs from the board DT compatible string once hardware has booted this node.
+
 ## Expressltexx RAM Bank
 
 Values currently used:
