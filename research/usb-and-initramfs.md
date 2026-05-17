@@ -54,6 +54,9 @@ Values currently used:
 - The initramfs is built from one static ARMv7 BusyBox binary. The default source is `https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-armv7l`, pinned by SHA256 `cd04052b8b6885f75f50b2a280bfcbf849d8710c8e61d369c533acf307eda064`.
 - The initramfs creates `/usr/bin` and `/usr/sbin` and runs `busybox --install -s` for `/bin`, `/sbin`, `/usr/bin`, and `/usr/sbin` before spawning the USB serial getty so applets such as `devmem` are available through normal `PATH` lookup.
 - The initramfs mounts debugfs at `/sys/kernel/debug` before gadget setup so debugfs diagnostics such as `devices_deferred` are available in the minimal shell.
+- `minitrd/` is a local mkosi experiment that uses `Distribution=postmarketos`, `Release=edge`, `Architecture=arm`, and `Packages=busybox`. It reuses the same CDC-ACM shell policy, and boot helpers accept it as `INITRAMFS=minitrd`.
+- The current `minitrd/` package set resolves to 9 APK packages: Alpine `alpine-baselayout-data`, `musl`, `busybox`, `busybox-binsh`, `alpine-baselayout`, `alpine-keys`, `alpine-release`, plus postmarketOS `postmarketos-baselayout` and `postmarketos-release`.
+- A local build produced `out/expressltexx/minitrd.cpio.gz` at `904589` bytes and a `SKIP_BUILD=1` Android boot image at `10405888` bytes, comfortably below the practical lk2nd `fastboot boot` target of about 20 MiB including kernel.
 
 Sources:
 
@@ -66,6 +69,9 @@ Sources:
 - `linux/drivers/usb/gadget/Kconfig:249-257` defines `CONFIG_USB_CONFIGFS_ACM` and selects `USB_U_SERIAL` plus `USB_F_ACM`.
 - `/usr/share/hwdata/usb.ids:20954-20962` maps `1d6b:0104` to Linux Foundation Multifunction Composite Gadget.
 - `https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-armv7l.log` records the default BusyBox binary as a static `armv7l-linux-musleabihf` build with the required shell, mount, mknod, stty, getty, and symlink applets enabled.
+- `https://dl-cdn.alpinelinux.org/alpine/edge/main/armv7/` is the Alpine source for the minitrd package set, including musl and BusyBox.
+- `https://mirror.postmarketos.org/postmarketos/master/armv7/` is the postmarketOS source for `postmarketos-baselayout` and `postmarketos-release`.
+- Fedora hosts need `qemu-user-static-arm` installed and `systemd-binfmt` restarted so mkosi/apk can run ARMv7 package scriptlets during a `Distribution=postmarketos Architecture=arm` build. Without `/proc/sys/fs/binfmt_misc/qemu-arm`, apk scriptlets fail with `Exec format error`.
 
 Current use:
 
@@ -74,6 +80,8 @@ Current use:
 - `build-dev-initrd.sh:182-250` creates `/dev/ttyGS0` if needed, configures the CDC-ACM gadget, binds the first UDC, and starts the USB serial shell.
 - `build-dev-initrd.sh:280-329` includes BusyBox and base applet links required by the gadget setup and storage-debug shell.
 - `build-lk2nd-userdata.sh:217-243` and `build-lk2nd-bootable.sh:186-207` enable the kernel config options needed by local bring-up images, including `CONFIG_USB_CONFIGFS_ACM`.
+- `build-minitrd.sh` runs `~/src/mkosi/bin/mkosi` against `minitrd/` and writes `out/expressltexx/minitrd.cpio.gz`.
+- `build-lk2nd-bootable.sh` and `build-lk2nd-userdata.sh` accept `INITRAMFS=minitrd` to invoke `build-minitrd.sh`.
 
 Notes:
 

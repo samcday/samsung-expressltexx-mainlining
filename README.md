@@ -108,6 +108,7 @@ requirements carried in that defconfig instead of helper-side config edits.
 | `build-lk2nd-bootable.sh` | Normal direct `fastboot boot` image builder. |
 | `build-lk2nd-userdata.sh` | lk2nd/extlinux userdata fallback image builder. |
 | `build-dev-initrd.sh` | Static BusyBox initramfs and CDC-ACM gadget setup. |
+| `build-minitrd.sh` | Experimental mkosi/APK mini initramfs builder. |
 | `build-pmos-envkernel.sh` | Local Linux build plus `pmbootstrap build --envkernel` round-trip helper. |
 | `pmaports/` | postmarketOS packaging checkout for `device-samsung-expressltexx` and the shared MSM8930 kernel aport. |
 | `linux/arch/arm/boot/dts/qcom/qcom-msm8930.dtsi` | Minimal MSM8930 SoC description. |

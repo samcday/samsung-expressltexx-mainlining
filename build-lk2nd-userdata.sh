@@ -31,9 +31,10 @@ Environment overrides:
   BUILD_DIR          Kernel build directory (default: $OUT_DIR/linux-build)
   IMAGE              Output userdata image path (default: $OUT_DIR/expressltexx-userdata.img)
   DTB                DTB basename (default: qcom-msm8930-samsung-expressltexx.dtb)
-  INITRAMFS          Optional initramfs path; use "dev"/"minimal" for ./build-dev-initrd.sh
-                     or "none" to omit it
+  INITRAMFS          Optional initramfs path; use "dev"/"minimal" for ./build-dev-initrd.sh,
+                     "minitrd" for ./build-minitrd.sh, or "none" to omit it
   DEV_INITRD_SCRIPT  Dev initrd builder (default: ./build-dev-initrd.sh)
+  MINITRD_SCRIPT     mkosi/APK minitrd builder (default: ./build-minitrd.sh)
   BUSYBOX            Static ARM BusyBox binary for dev initrd
                      (default: $OUT_DIR/cache/busybox-armv7l)
   BUSYBOX_URL        Download URL used when BUSYBOX is missing
@@ -91,6 +92,7 @@ BUSYBOX=${BUSYBOX:-"$CACHE_DIR/busybox-armv7l"}
 BUSYBOX_URL=${BUSYBOX_URL:-https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-armv7l}
 BUSYBOX_SHA256=${BUSYBOX_SHA256:-cd04052b8b6885f75f50b2a280bfcbf849d8710c8e61d369c533acf307eda064}
 DEV_INITRD_SCRIPT=${DEV_INITRD_SCRIPT:-"$ROOT_DIR/build-dev-initrd.sh"}
+MINITRD_SCRIPT=${MINITRD_SCRIPT:-"$ROOT_DIR/build-minitrd.sh"}
 
 BOOT_START_SECTOR=2048
 SECTORS_PER_MIB=2048
@@ -140,6 +142,15 @@ case "$INITRAMFS" in
 			BUSYBOX="$BUSYBOX" \
 			BUSYBOX_URL="$BUSYBOX_URL" \
 			BUSYBOX_SHA256="$BUSYBOX_SHA256" \
+			KEEP_WORK="$KEEP_WORK"
+		;;
+	minitrd)
+		DEV_INITRAMFS=1
+		INITRAMFS="$OUT_DIR/minitrd.cpio.gz"
+		[[ -x "$MINITRD_SCRIPT" ]] || die "minitrd builder not executable: $MINITRD_SCRIPT"
+		"$MINITRD_SCRIPT" \
+			OUTPUT="$INITRAMFS" \
+			OUT_DIR="$OUT_DIR" \
 			KEEP_WORK="$KEEP_WORK"
 		;;
 	auto)

@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+
+# BusyBox is installed as /bin/busybox by Alpine/postmarketOS.

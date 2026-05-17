@@ -34,8 +34,9 @@ Environment overrides:
   BUILD_DIR          Kernel build directory (default: $OUT_DIR/linux-build)
   IMAGE              Output boot image path (default: $OUT_DIR/expressltexx-boot.img)
   DTB                DTB basename (default: qcom-msm8930-samsung-expressltexx.dtb)
-  INITRAMFS          Initramfs path, "dev"/"minimal", or "none" (default: dev)
+  INITRAMFS          Initramfs path, "dev"/"minimal", "minitrd", or "none" (default: dev)
   DEV_INITRD_SCRIPT  Dev initrd builder (default: ./build-dev-initrd.sh)
+  MINITRD_SCRIPT     mkosi/APK minitrd builder (default: ./build-minitrd.sh)
   BUSYBOX            Static ARM BusyBox binary for dev initrd
                      (default: $OUT_DIR/cache/busybox-armv7l)
   BUSYBOX_URL        Download URL used when BUSYBOX is missing
@@ -84,6 +85,7 @@ BUSYBOX=${BUSYBOX:-"$CACHE_DIR/busybox-armv7l"}
 BUSYBOX_URL=${BUSYBOX_URL:-https://busybox.net/downloads/binaries/1.31.0-defconfig-multiarch-musl/busybox-armv7l}
 BUSYBOX_SHA256=${BUSYBOX_SHA256:-cd04052b8b6885f75f50b2a280bfcbf849d8710c8e61d369c533acf307eda064}
 DEV_INITRD_SCRIPT=${DEV_INITRD_SCRIPT:-"$ROOT_DIR/build-dev-initrd.sh"}
+MINITRD_SCRIPT=${MINITRD_SCRIPT:-"$ROOT_DIR/build-minitrd.sh"}
 
 KERNEL_OFFSET=${KERNEL_OFFSET:-0x00008000}
 RAMDISK_OFFSET=${RAMDISK_OFFSET:-0x02200000}
@@ -115,6 +117,13 @@ case "$INITRAMFS" in
 			BUSYBOX="$BUSYBOX" \
 			BUSYBOX_URL="$BUSYBOX_URL" \
 			BUSYBOX_SHA256="$BUSYBOX_SHA256"
+		;;
+	minitrd)
+		INITRAMFS="$OUT_DIR/minitrd.cpio.gz"
+		[[ -x "$MINITRD_SCRIPT" ]] || die "minitrd builder not executable: $MINITRD_SCRIPT"
+		"$MINITRD_SCRIPT" \
+			OUTPUT="$INITRAMFS" \
+			OUT_DIR="$OUT_DIR"
 		;;
 	auto)
 		die 'INITRAMFS=auto was removed; use INITRAMFS=dev or a path'
